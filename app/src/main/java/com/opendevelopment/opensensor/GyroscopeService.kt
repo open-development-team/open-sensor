@@ -13,6 +13,7 @@ import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ class GyroscopeService : Service(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var gyroscope: Sensor? = null
     private var isStarted = false
+    private lateinit var settingsDataStore: SettingsDataStore
 
     override fun onCreate() {
         super.onCreate()
@@ -42,6 +44,7 @@ class GyroscopeService : Service(), SensorEventListener {
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        settingsDataStore = SettingsDataStore(this)
         System.loadLibrary("opensensor_native")
 
         createNotificationChannel()
@@ -61,7 +64,13 @@ class GyroscopeService : Service(), SensorEventListener {
                 val samplingPeriod = intent.getIntExtra("GYROSCOPE_SAMPLING_PERIOD", SensorManager.SENSOR_DELAY_NORMAL)
                 updateSettings(multiplierX, multiplierY, multiplierZ, rounding)
                 start(samplingPeriod)
-                _isGyroscopeEnabled.value = true
+                _isGyroscopeEnabled.value = isStarted
+                if (!isStarted) {
+                    serviceScope.launch {
+                        settingsDataStore.updateGyroscopeEnabled(false)
+                    }
+                    stopSelf()
+                }
             }
             ACTION_STOP_GYROSCOPE -> {
                 stopSelf()
@@ -84,6 +93,8 @@ class GyroscopeService : Service(), SensorEventListener {
             isStarted = true
         } else {
             Log.e(tag, "Gyroscope not available on this device.")
+            Toast.makeText(this, "Gyroscope not available on this device.", Toast.LENGTH_SHORT).show()
+            isStarted = false
         }
     }
 

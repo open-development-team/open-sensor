@@ -23,6 +23,7 @@ data class Settings(
     val isAccelerometerEnabled: Boolean,
     val isGyroscopeEnabled: Boolean,
     val isLightSensorEnabled: Boolean,
+    val isTemperatureSensorEnabled: Boolean,
     val accelerometerTopic: String,
     val accelerometerMultiplierX: String,
     val accelerometerMultiplierY: String,
@@ -37,7 +38,10 @@ data class Settings(
     val gyroscopeSamplingPeriod: Int,
     val lightSensorTopic: String,
     val lightSensorRounding: String,
-    val lightSensorSamplingPeriod: Int
+    val lightSensorSamplingPeriod: Int,
+    val temperatureSensorTopic: String,
+    val temperatureSensorRounding: String,
+    val temperatureSensorSamplingPeriod: Int
 )
 
 class SettingsDataStore(val context: Context) {
@@ -69,6 +73,11 @@ class SettingsDataStore(val context: Context) {
         val LIGHT_SENSOR_TOPIC = stringPreferencesKey("light_sensor_topic")
         val LIGHT_SENSOR_ROUNDING = stringPreferencesKey("light_sensor_rounding")
         val LIGHT_SENSOR_SAMPLING_PERIOD = intPreferencesKey("light_sensor_sampling_period")
+
+        val TEMPERATURE_SENSOR_ENABLED = booleanPreferencesKey("temperature_sensor_enabled")
+        val TEMPERATURE_SENSOR_TOPIC = stringPreferencesKey("temperature_sensor_topic")
+        val TEMPERATURE_SENSOR_ROUNDING = stringPreferencesKey("temperature_sensor_rounding")
+        val TEMPERATURE_SENSOR_SAMPLING_PERIOD = intPreferencesKey("temperature_sensor_sampling_period")
     }
 
     val settingsFlow: Flow<Settings> = context.dataStore.data
@@ -82,24 +91,29 @@ class SettingsDataStore(val context: Context) {
                 isAccelerometerEnabled = preferences[PreferenceKeys.ACCELEROMETER_ENABLED] ?: false,
                 isGyroscopeEnabled = preferences[PreferenceKeys.GYROSCOPE_ENABLED] ?: false,
                 isLightSensorEnabled = preferences[PreferenceKeys.LIGHT_SENSOR_ENABLED] ?: false,
+                isTemperatureSensorEnabled = preferences[PreferenceKeys.TEMPERATURE_SENSOR_ENABLED] ?: false,
 
                 accelerometerTopic = preferences[PreferenceKeys.ACCELEROMETER_TOPIC] ?: "opensensor/sensor/accelerometer",
                 accelerometerMultiplierX = preferences[PreferenceKeys.ACCELEROMETER_MULTIPLIER_X] ?: "1.0",
                 accelerometerMultiplierY = preferences[PreferenceKeys.ACCELEROMETER_MULTIPLIER_Y] ?: "1.0",
                 accelerometerMultiplierZ = preferences[PreferenceKeys.ACCELEROMETER_MULTIPLIER_Z] ?: "1.0",
-                accelerometerRounding = preferences[PreferenceKeys.ACCELEROMETER_ROUNDING] ?: "5",
+                accelerometerRounding = preferences[PreferenceKeys.ACCELEROMETER_ROUNDING] ?: "2",
                 accelerometerSamplingPeriod = preferences[PreferenceKeys.ACCELEROMETER_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL,
 
                 gyroscopeTopic = preferences[PreferenceKeys.GYROSCOPE_TOPIC] ?: "opensensor/sensor/gyroscope",
                 gyroscopeMultiplierX = preferences[PreferenceKeys.GYROSCOPE_MULTIPLIER_X] ?: "1.0",
                 gyroscopeMultiplierY = preferences[PreferenceKeys.GYROSCOPE_MULTIPLIER_Y] ?: "1.0",
                 gyroscopeMultiplierZ = preferences[PreferenceKeys.GYROSCOPE_MULTIPLIER_Z] ?: "1.0",
-                gyroscopeRounding = preferences[PreferenceKeys.GYROSCOPE_ROUNDING] ?: "5",
+                gyroscopeRounding = preferences[PreferenceKeys.GYROSCOPE_ROUNDING] ?: "2",
                 gyroscopeSamplingPeriod = preferences[PreferenceKeys.GYROSCOPE_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL,
 
                 lightSensorTopic = preferences[PreferenceKeys.LIGHT_SENSOR_TOPIC] ?: "opensensor/sensor/light",
                 lightSensorRounding = preferences[PreferenceKeys.LIGHT_SENSOR_ROUNDING] ?: "2",
-                lightSensorSamplingPeriod = preferences[PreferenceKeys.LIGHT_SENSOR_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL
+                lightSensorSamplingPeriod = preferences[PreferenceKeys.LIGHT_SENSOR_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL,
+
+                temperatureSensorTopic = preferences[PreferenceKeys.TEMPERATURE_SENSOR_TOPIC] ?: "opensensor/sensor/temperature",
+                temperatureSensorRounding = preferences[PreferenceKeys.TEMPERATURE_SENSOR_ROUNDING] ?: "2",
+                temperatureSensorSamplingPeriod = preferences[PreferenceKeys.TEMPERATURE_SENSOR_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL
             )
         }
 
@@ -133,6 +147,10 @@ class SettingsDataStore(val context: Context) {
 
     suspend fun updateLightSensorEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PreferenceKeys.LIGHT_SENSOR_ENABLED] = enabled }
+    }
+
+    suspend fun updateTemperatureSensorEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferenceKeys.TEMPERATURE_SENSOR_ENABLED] = enabled }
     }
 
     suspend fun updateAccelerometerTopic(topic: String) {
@@ -193,5 +211,17 @@ class SettingsDataStore(val context: Context) {
 
     suspend fun updateLightSensorSamplingPeriod(samplingPeriod: Int) {
         context.dataStore.edit { it[PreferenceKeys.LIGHT_SENSOR_SAMPLING_PERIOD] = samplingPeriod }
+    }
+
+    suspend fun updateTemperatureSensorTopic(topic: String) {
+        context.dataStore.edit { it[PreferenceKeys.TEMPERATURE_SENSOR_TOPIC] = topic }
+    }
+
+    suspend fun updateTemperatureSensorRounding(rounding: String) {
+        context.dataStore.edit { it[PreferenceKeys.TEMPERATURE_SENSOR_ROUNDING] = rounding }
+    }
+
+    suspend fun updateTemperatureSensorSamplingPeriod(samplingPeriod: Int) {
+        context.dataStore.edit { it[PreferenceKeys.TEMPERATURE_SENSOR_SAMPLING_PERIOD] = samplingPeriod }
     }
 }

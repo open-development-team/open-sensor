@@ -25,16 +25,16 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class AccelerometerService : Service(), SensorEventListener {
+class TemperatureSensorService : Service(), SensorEventListener {
 
-    private val tag = "AccelerometerService"
+    private val tag = "TemperatureSensorService"
     private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
 
-    private val notificationId = 1
-    private val channelId = "AccelerometerServiceChannel"
+    private val notificationId = 5 // Unique ID for the notification
+    private val channelId = "TemperatureSensorServiceChannel"
 
     private lateinit var sensorManager: SensorManager
-    private var accelerometer: Sensor? = null
+    private var temperatureSensor: Sensor? = null
     private var isStarted = false
     private lateinit var settingsDataStore: SettingsDataStore
 
@@ -43,7 +43,7 @@ class AccelerometerService : Service(), SensorEventListener {
         Log.d(tag, "Service created.")
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
+        temperatureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE)
         settingsDataStore = SettingsDataStore(this)
         System.loadLibrary("opensensor_native")
 
@@ -56,26 +56,20 @@ class AccelerometerService : Service(), SensorEventListener {
 
         Log.d(tag, "onStartCommand received action: ${intent?.action}")
         when (intent?.action) {
-            ACTION_START_ACCELEROMETER -> {
-                val multiplierX = intent.getFloatExtra("MULTIPLIER_X", 1.0f)
-                val multiplierY = intent.getFloatExtra("MULTIPLIER_Y", 1.0f)
-                val multiplierZ = intent.getFloatExtra("MULTIPLIER_Z", 1.0f)
+            ACTION_START_TEMPERATURE_SENSOR -> {
                 val rounding = intent.getIntExtra("ROUNDING", 2)
                 val samplingPeriod = intent.getIntExtra("SAMPLING_PERIOD", SensorManager.SENSOR_DELAY_NORMAL)
-                updateSettings(multiplierX, multiplierY, multiplierZ, rounding)
+                updateSettings(rounding)
                 start(samplingPeriod)
-                _isAccelerometerEnabled.value = isStarted
+                _isTemperatureSensorEnabled.value = isStarted
                 if (!isStarted) {
                     serviceScope.launch {
-                        settingsDataStore.updateAccelerometerEnabled(false)
+                        settingsDataStore.updateTemperatureSensorEnabled(false)
                     }
                     stopSelf()
                 }
             }
-            ACTION_STOP_ACCELEROMETER -> {
-                stopSelf()
-            }
-            ACTION_STOP_SERVICE -> {
+            ACTION_STOP_TEMPERATURE_SENSOR -> {
                 stopSelf()
             }
         }
@@ -84,43 +78,43 @@ class AccelerometerService : Service(), SensorEventListener {
     }
 
     private fun start(samplingPeriod: Int) {
-        Log.d(tag, "Starting accelerometer listener with sampling period: $samplingPeriod")
+        Log.d(tag, "Starting temperature sensor listener with sampling period: $samplingPeriod")
         if (isStarted) {
             sensorManager.unregisterListener(this)
         }
-        if (accelerometer != null) {
-            sensorManager.registerListener(this, accelerometer, samplingPeriod)
+        if (temperatureSensor != null) {
+            sensorManager.registerListener(this, temperatureSensor, samplingPeriod)
             isStarted = true
         } else {
-            Log.e(tag, "Accelerometer not available on this device.")
-            Toast.makeText(this, "Accelerometer not available on this device.", Toast.LENGTH_SHORT).show()
+            Log.e(tag, "Temperature sensor not available on this device.")
+            Toast.makeText(this, "Temperature sensor not available on this device.", Toast.LENGTH_SHORT).show()
             isStarted = false
         }
     }
 
     private fun stop() {
         if (isStarted) {
-            Log.d(tag, "Stopping accelerometer listener.")
+            Log.d(tag, "Stopping temperature sensor listener.")
             sensorManager.unregisterListener(this)
             isStarted = false
         }
     }
 
-    private fun updateSettings(multiplierX: Float, multiplierY: Float, multiplierZ: Float, rounding: Int) {
-        nativeUpdateSettings(multiplierX, multiplierY, multiplierZ, rounding)
+    private fun updateSettings(rounding: Int) {
+        nativeUpdateTemperatureSensorSettings(rounding)
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-        if (event?.sensor?.type == Sensor.TYPE_LINEAR_ACCELERATION) {
-            val (x, y, z) = event.values
+        if (event?.sensor?.type == Sensor.TYPE_AMBIENT_TEMPERATURE) {
+            val value = event.values[0]
 
             // For the UI
             serviceScope.launch {
-                _accelerometerData.emit(Triple(x, y, z))
+                _temperatureSensorData.emit(value)
             }
 
             // Process data in C++
-            nativeProcessData(x, y, z)
+            nativeProcessTemperatureSensorData(value)
         }
     }
 
@@ -130,7 +124,7 @@ class AccelerometerService : Service(), SensorEventListener {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
                 channelId,
-                "Accelerometer Service Channel",
+                "Temperature Sensor Service Channel",
                 NotificationManager.IMPORTANCE_DEFAULT
             )
             val manager = getSystemService(NotificationManager::class.java)
@@ -140,8 +134,8 @@ class AccelerometerService : Service(), SensorEventListener {
 
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Accelerometer Service")
-            .setContentText("Monitoring accelerometer in the background.")
+            .setContentTitle("Temperature Sensor Service")
+            .setContentText("Monitoring temperature sensor in the background.")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .build()
     }
@@ -149,28 +143,26 @@ class AccelerometerService : Service(), SensorEventListener {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(tag, "Service destroyed.")
-        if (isAccelerometerEnabled.value) {
+        if (isTemperatureSensorEnabled.value) {
             stop()
         }
-        _isAccelerometerEnabled.value = false
+        _isTemperatureSensorEnabled.value = false
         serviceScope.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        const val ACTION_START_ACCELEROMETER = "com.opendevelopment.opensensor.START_ACCELEROMETER"
-        const val ACTION_STOP_ACCELEROMETER = "com.opendevelopment.opensensor.STOP_ACCELEROMETER"
+        const val ACTION_START_TEMPERATURE_SENSOR = "com.opendevelopment.opensensor.START_TEMPERATURE_SENSOR"
+        const val ACTION_STOP_TEMPERATURE_SENSOR = "com.opendevelopment.opensensor.STOP_TEMPERATURE_SENSOR"
 
-        const val ACTION_STOP_SERVICE = "com.opendevelopment.opensensor.STOP_SERVICE"
+        private val _temperatureSensorData = MutableSharedFlow<Float>()
+        val temperatureSensorData = _temperatureSensorData.asSharedFlow()
 
-        private val _accelerometerData = MutableSharedFlow<Triple<Float, Float, Float>>()
-        val accelerometerData = _accelerometerData.asSharedFlow()
-
-        private val _isAccelerometerEnabled = MutableStateFlow(false)
-        val isAccelerometerEnabled = _isAccelerometerEnabled.asStateFlow()
+        private val _isTemperatureSensorEnabled = MutableStateFlow(false)
+        val isTemperatureSensorEnabled = _isTemperatureSensorEnabled.asStateFlow()
     }
 
-    private external fun nativeUpdateSettings(multiplierX: Float, multiplierY: Float, multiplierZ: Float, rounding: Int)
-    private external fun nativeProcessData(x: Float, y: Float, z: Float)
+    private external fun nativeUpdateTemperatureSensorSettings(rounding: Int)
+    private external fun nativeProcessTemperatureSensorData(value: Float)
 }

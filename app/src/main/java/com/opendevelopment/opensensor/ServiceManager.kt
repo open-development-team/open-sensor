@@ -25,6 +25,10 @@ class ServiceManager(private val context: Context) {
         if (settings.isLightSensorEnabled) {
             startLightSensor()
         }
+
+        if (settings.isTemperatureSensorEnabled) {
+            startTemperatureSensor()
+        }
     }
 
     suspend fun startMqtt() {
@@ -116,5 +120,27 @@ class ServiceManager(private val context: Context) {
 
     suspend fun updateLightSensorConfig() {
         startLightSensor()
+    }
+
+    suspend fun startTemperatureSensor() {
+        val settingsDataStore = SettingsDataStore(context)
+        val settings = settingsDataStore.settingsFlow.first()
+        val intent = Intent(context, TemperatureSensorService::class.java).apply {
+            action = TemperatureSensorService.ACTION_START_TEMPERATURE_SENSOR
+            putExtra("ROUNDING", settings.temperatureSensorRounding.toIntOrNull() ?: 2)
+            putExtra("SAMPLING_PERIOD", settings.temperatureSensorSamplingPeriod)
+        }
+        context.startService(intent)
+    }
+
+    fun stopTemperatureSensor() {
+        val intent = Intent(context, TemperatureSensorService::class.java).apply {
+            action = TemperatureSensorService.ACTION_STOP_TEMPERATURE_SENSOR
+        }
+        context.startService(intent)
+    }
+
+    suspend fun updateTemperatureSensorConfig() {
+        startTemperatureSensor()
     }
 }

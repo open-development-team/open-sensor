@@ -3,6 +3,7 @@
 #include "mqtt_client_wrapper.h"
 #include "sensor_processor.h"
 #include "light_sensor_processor.h"
+#include "temperature_sensor_processor.h"
 #include <android/log.h>
 
 #define LOG_TAG "NativeLib"
@@ -14,6 +15,7 @@ static MqttClientWrapper* mqttClientWrapper = nullptr;
 static SensorProcessor* accelerometerProcessor = nullptr;
 static SensorProcessor* gyroscopeProcessor = nullptr;
 static LightSensorProcessor* lightSensorProcessor = nullptr;
+static TemperatureSensorProcessor* temperatureSensorProcessor = nullptr;
 static JavaVM* javaVM = nullptr;
 
 // JNI_OnLoad is called when the library is loaded
@@ -29,20 +31,24 @@ Java_com_opendevelopment_opensensor_MqttService_nativeInit(
     jobject callback_obj,
     jstring accelerometerTopic,
     jstring gyroscopeTopic,
-    jstring lightSensorTopic) {
+    jstring lightSensorTopic,
+    jstring temperatureSensorTopic) {
     if (mqttClientWrapper == nullptr) {
         const char* accelerometerTopicCStr = env->GetStringUTFChars(accelerometerTopic, nullptr);
         const char* gyroscopeTopicCStr = env->GetStringUTFChars(gyroscopeTopic, nullptr);
         const char* lightSensorTopicCStr = env->GetStringUTFChars(lightSensorTopic, nullptr);
+        const char* temperatureSensorTopicCStr = env->GetStringUTFChars(temperatureSensorTopic, nullptr);
 
         mqttClientWrapper = new MqttClientWrapper(javaVM, callback_obj);
         accelerometerProcessor = new SensorProcessor(mqttClientWrapper, accelerometerTopicCStr);
         gyroscopeProcessor = new SensorProcessor(mqttClientWrapper, gyroscopeTopicCStr);
         lightSensorProcessor = new LightSensorProcessor(mqttClientWrapper, lightSensorTopicCStr);
+        temperatureSensorProcessor = new TemperatureSensorProcessor(mqttClientWrapper, temperatureSensorTopicCStr);
 
         env->ReleaseStringUTFChars(accelerometerTopic, accelerometerTopicCStr);
         env->ReleaseStringUTFChars(gyroscopeTopic, gyroscopeTopicCStr);
         env->ReleaseStringUTFChars(lightSensorTopic, lightSensorTopicCStr);
+        env->ReleaseStringUTFChars(temperatureSensorTopic, temperatureSensorTopicCStr);
 
         LOGD("MqttClientWrapper and SensorProcessors initialized.");
     }
@@ -82,6 +88,8 @@ Java_com_opendevelopment_opensensor_MqttService_nativeCleanup(JNIEnv* env, jobje
         gyroscopeProcessor = nullptr;
         delete lightSensorProcessor;
         lightSensorProcessor = nullptr;
+        delete temperatureSensorProcessor;
+        temperatureSensorProcessor = nullptr;
         delete mqttClientWrapper;
         mqttClientWrapper = nullptr;
     }
@@ -132,5 +140,21 @@ Java_com_opendevelopment_opensensor_LightSensorService_nativeProcessLightSensorD
         JNIEnv* env, jobject /* this */, jfloat value) {
     if (lightSensorProcessor != nullptr) {
         lightSensorProcessor->processData(value);
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_opendevelopment_opensensor_TemperatureSensorService_nativeUpdateTemperatureSensorSettings(
+        JNIEnv* env, jobject /* this */, jint rounding) {
+    if (temperatureSensorProcessor != nullptr) {
+        temperatureSensorProcessor->updateSettings(rounding);
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_opendevelopment_opensensor_TemperatureSensorService_nativeProcessTemperatureSensorData(
+        JNIEnv* env, jobject /* this */, jfloat value) {
+    if (temperatureSensorProcessor != nullptr) {
+        temperatureSensorProcessor->processData(value);
     }
 }

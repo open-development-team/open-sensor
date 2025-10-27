@@ -27,21 +27,25 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
             isAccelerometerEnabled = false,
             isGyroscopeEnabled = false,
             isLightSensorEnabled = false,
+            isTemperatureSensorEnabled = false,
             accelerometerTopic = "opensensor/sensor/accelerometer",
             accelerometerMultiplierX = "1.0",
             accelerometerMultiplierY = "1.0",
             accelerometerMultiplierZ = "1.0",
-            accelerometerRounding = "5",
+            accelerometerRounding = "2",
             accelerometerSamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL,
             gyroscopeTopic = "opensensor/sensor/gyroscope",
             gyroscopeMultiplierX = "1.0",
             gyroscopeMultiplierY = "1.0",
             gyroscopeMultiplierZ = "1.0",
-            gyroscopeRounding = "5",
+            gyroscopeRounding = "2",
             gyroscopeSamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL,
             lightSensorTopic = "opensensor/sensor/light",
             lightSensorRounding = "2",
-            lightSensorSamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL
+            lightSensorSamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL,
+            temperatureSensorTopic = "opensensor/sensor/temperature",
+            temperatureSensorRounding = "2",
+            temperatureSensorSamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL
         )
     )
 
@@ -66,6 +70,13 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
     )
 
     private data class LightSensorSettings(
+        val isEnabled: Boolean,
+        val rounding: String,
+        val samplingPeriod: Int,
+        val mqttTopic: String
+    )
+
+    private data class TemperatureSensorSettings(
         val isEnabled: Boolean,
         val rounding: String,
         val samplingPeriod: Int,
@@ -135,6 +146,25 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
                     }
                 }
         }
+
+        // Observe temperature sensor settings changes
+        viewModelScope.launch {
+            settingsDataStore.settingsFlow
+                .map {
+                    TemperatureSensorSettings(
+                        it.isTemperatureSensorEnabled,
+                        it.temperatureSensorRounding,
+                        it.temperatureSensorSamplingPeriod,
+                        it.temperatureSensorTopic
+                    )
+                }
+                .distinctUntilChanged()
+                .collect {
+                    if (it.isEnabled) {
+                        serviceManager.updateTemperatureSensorConfig()
+                    }
+                }
+        }
     }
 
     fun updateBroker(broker: String) = viewModelScope.launch { settingsDataStore.updateBroker(broker) }
@@ -145,6 +175,7 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
     fun updateAccelerometerEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateAccelerometerEnabled(enabled) }
     fun updateGyroscopeEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateGyroscopeEnabled(enabled) }
     fun updateLightSensorEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateLightSensorEnabled(enabled) }
+    fun updateTemperatureSensorEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorEnabled(enabled) }
     fun updateAccelerometerTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateAccelerometerTopic(topic) }
     fun updateAccelerometerMultiplierX(multiplier: String) = viewModelScope.launch { settingsDataStore.updateAccelerometerMultiplierX(multiplier) }
     fun updateAccelerometerMultiplierY(multiplier: String) = viewModelScope.launch { settingsDataStore.updateAccelerometerMultiplierY(multiplier) }
@@ -160,6 +191,9 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
     fun updateLightSensorTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateLightSensorTopic(topic) }
     fun updateLightSensorRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateLightSensorRounding(rounding) }
     fun updateLightSensorSamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateLightSensorSamplingPeriod(samplingPeriod) }
+    fun updateTemperatureSensorTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorTopic(topic) }
+    fun updateTemperatureSensorRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorRounding(rounding) }
+    fun updateTemperatureSensorSamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorSamplingPeriod(samplingPeriod) }
 }
 
 class SettingsViewModelFactory(private val settingsDataStore: SettingsDataStore) : ViewModelProvider.Factory {

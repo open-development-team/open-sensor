@@ -13,6 +13,7 @@ import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ class LightSensorService : Service(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var lightSensor: Sensor? = null
     private var isStarted = false
+    private lateinit var settingsDataStore: SettingsDataStore
 
     override fun onCreate() {
         super.onCreate()
@@ -42,6 +44,7 @@ class LightSensorService : Service(), SensorEventListener {
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         lightSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LIGHT)
+        settingsDataStore = SettingsDataStore(this)
         System.loadLibrary("opensensor_native")
 
         createNotificationChannel()
@@ -58,7 +61,13 @@ class LightSensorService : Service(), SensorEventListener {
                 val samplingPeriod = intent.getIntExtra("SAMPLING_PERIOD", SensorManager.SENSOR_DELAY_NORMAL)
                 updateSettings(rounding)
                 start(samplingPeriod)
-                _isLightSensorEnabled.value = true
+                _isLightSensorEnabled.value = isStarted
+                if (!isStarted) {
+                    serviceScope.launch {
+                        settingsDataStore.updateLightSensorEnabled(false)
+                    }
+                    stopSelf()
+                }
             }
             ACTION_STOP_LIGHT_SENSOR -> {
                 stopSelf()
@@ -78,6 +87,8 @@ class LightSensorService : Service(), SensorEventListener {
             isStarted = true
         } else {
             Log.e(tag, "Light sensor not available on this device.")
+            Toast.makeText(this, "Light sensor not available on this device.", Toast.LENGTH_SHORT).show()
+            isStarted = false
         }
     }
 

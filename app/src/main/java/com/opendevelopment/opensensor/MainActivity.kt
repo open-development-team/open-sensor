@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
@@ -125,7 +126,8 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
     val sources = listOf(
         NavItem("accelerometer", "Accelerometer", Icons.Default.Sensors),
         NavItem("gyroscope", "Gyroscope", Icons.AutoMirrored.Filled.RotateRight),
-        NavItem("light", "Light", Icons.Default.Highlight)
+        NavItem("light", "Light", Icons.Default.Highlight),
+        NavItem("temperature", "Ambient Temperature", Icons.Default.Thermostat)
     )
 
     DisposableEffect(Unit) {
@@ -221,6 +223,7 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                             "accelerometer" -> "Accelerometer"
                             "gyroscope" -> "Gyroscope"
                             "light" -> "Light"
+                            "temperature" -> "Temperature"
                             else -> "Accelerometer"
                         }
                         Text(titleText)
@@ -338,6 +341,31 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                                     Text("Light")
                                 }
                             }
+                            "temperature" -> {
+                                val settings by settingsViewModel.settings.collectAsState()
+                                val coroutineScope = rememberCoroutineScope()
+                                val serviceManager = remember { ServiceManager(context) }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(end = 16.dp)
+                                ) {
+                                    Switch(
+                                        checked = settings.isTemperatureSensorEnabled,
+                                        onCheckedChange = { enabled ->
+                                            settingsViewModel.updateTemperatureSensorEnabled(enabled)
+                                            coroutineScope.launch {
+                                                if (enabled) {
+                                                    serviceManager.startTemperatureSensor()
+                                                } else {
+                                                    serviceManager.stopTemperatureSensor()
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                    Text("Temperature")
+                                }
+                            }
                         }
                     }
                 )
@@ -359,6 +387,9 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                 }
                 composable("light") {
                     LightScreen(settingsViewModel)
+                }
+                composable("temperature") {
+                    TemperatureScreen(settingsViewModel)
                 }
                 composable("settings") {
                     SettingsScreen(settingsViewModel)
@@ -475,6 +506,37 @@ fun LightScreen(settingsViewModel: SettingsViewModel) {
 
     LaunchedEffect(Unit) {
         LightSensorService.lightSensorData.collect { newData ->
+            dataHistory.add(newData)
+            if (dataHistory.size > maxHistorySize) {
+                dataHistory.removeAt(0)
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        LineGraph(
+            data = dataHistory.map { Triple(it, 0f, 0f) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun TemperatureScreen(settingsViewModel: SettingsViewModel) {
+    val dataHistory = remember { mutableStateListOf<Float>() }
+    val maxHistorySize = 100
+
+    LaunchedEffect(Unit) {
+        TemperatureSensorService.temperatureSensorData.collect { newData ->
             dataHistory.add(newData)
             if (dataHistory.size > maxHistorySize) {
                 dataHistory.removeAt(0)
@@ -621,6 +683,20 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
                 onSave = { settingsViewModel.updateLightSensorRounding(it); onDismiss() },
                 keyboardType = KeyboardType.Number
             )
+            "temperatureSensorTopic" -> EditTextPreferenceDialog(
+                title = "Temperature Sensor Topic",
+                initialValue = settings.temperatureSensorTopic,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateTemperatureSensorTopic(it); onDismiss() },
+                hint = "Leave empty to disable publishing"
+            )
+            "temperatureSensorRounding" -> EditTextPreferenceDialog(
+                title = "Temperature Sensor Rounding (Decimals)",
+                initialValue = settings.temperatureSensorRounding,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateTemperatureSensorRounding(it); onDismiss() },
+                keyboardType = KeyboardType.Number
+            )
             "accelerometerSamplingPeriod" -> ListPreferenceDialog(
                 title = "Accelerometer Sampling Period",
                 options = samplingPeriodOptions,
@@ -642,6 +718,13 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateLightSensorSamplingPeriod(it); onDismiss() }
             )
+            "temperatureSensorSamplingPeriod" -> ListPreferenceDialog(
+                title = "Temperature Sensor Sampling Period",
+                options = samplingPeriodOptions,
+                currentValue = settings.temperatureSensorSamplingPeriod,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateTemperatureSensorSamplingPeriod(it); onDismiss() }
+            )
         }
     }
 
@@ -653,6 +736,7 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
         EditTextPreference(title = "Accelerometer Topic", summary = settings.accelerometerTopic.ifBlank { "Publishing disabled" }) { launchDialog("accelerometerTopic") }
         EditTextPreference(title = "Gyroscope Topic", summary = settings.gyroscopeTopic.ifBlank { "Publishing disabled" }) { launchDialog("gyroscopeTopic") }
         EditTextPreference(title = "Light Sensor Topic", summary = settings.lightSensorTopic.ifBlank { "Publishing disabled" }) { launchDialog("lightSensorTopic") }
+        EditTextPreference(title = "Temperature Sensor Topic", summary = settings.temperatureSensorTopic.ifBlank { "Publishing disabled" }) { launchDialog("temperatureSensorTopic") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -677,6 +761,12 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
         SettingsCategory(title = "Light Sensor Processing")
         EditTextPreference(title = "Rounding (Decimals)", summary = settings.lightSensorRounding) { launchDialog("lightSensorRounding") }
         ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.lightSensorSamplingPeriod] ?: "Normal") { launchDialog("lightSensorSamplingPeriod") }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        SettingsCategory(title = "Temperature Sensor Processing")
+        EditTextPreference(title = "Rounding (Decimals)", summary = settings.temperatureSensorRounding) { launchDialog("temperatureSensorRounding") }
+        ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.temperatureSensorSamplingPeriod] ?: "Normal") { launchDialog("temperatureSensorSamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

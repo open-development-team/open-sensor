@@ -67,7 +67,8 @@ class MqttService : Service() {
             this,
             settings.accelerometerTopic,
             settings.gyroscopeTopic,
-            settings.lightSensorTopic
+            settings.lightSensorTopic,
+            settings.temperatureSensorTopic
         )
 
         val filter = IntentFilter(ACTION_REQUEST_STATUS)
@@ -198,7 +199,8 @@ class MqttService : Service() {
         callback_obj: MqttService,
         accelerometerTopic: String,
         gyroscopeTopic: String,
-        lightSensorTopic: String
+        lightSensorTopic: String,
+        temperatureSensorTopic: String
     )
 
     private external fun nativeConnect(brokerUrl: String, clientId: String, username: String, password: String)
