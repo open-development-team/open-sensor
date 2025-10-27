@@ -110,6 +110,7 @@ add_library(opensensor_native SHARED
     native-lib.cpp
     mqtt_client_wrapper.cpp
     sensor_processor.cpp
+    light_sensor_processor.cpp
 )
 
 target_include_directories(opensensor_native PRIVATE

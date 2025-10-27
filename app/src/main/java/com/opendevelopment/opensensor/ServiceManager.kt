@@ -21,6 +21,10 @@ class ServiceManager(private val context: Context) {
         if (settings.isGyroscopeEnabled) {
             startGyroscope()
         }
+
+        if (settings.isLightSensorEnabled) {
+            startLightSensor()
+        }
     }
 
     suspend fun startMqtt() {
@@ -90,5 +94,27 @@ class ServiceManager(private val context: Context) {
 
     suspend fun updateGyroscopeConfig() {
         startGyroscope()
+    }
+
+    suspend fun startLightSensor() {
+        val settingsDataStore = SettingsDataStore(context)
+        val settings = settingsDataStore.settingsFlow.first()
+        val intent = Intent(context, LightSensorService::class.java).apply {
+            action = LightSensorService.ACTION_START_LIGHT_SENSOR
+            putExtra("ROUNDING", settings.lightSensorRounding.toIntOrNull() ?: 2)
+            putExtra("SAMPLING_PERIOD", settings.lightSensorSamplingPeriod)
+        }
+        context.startService(intent)
+    }
+
+    fun stopLightSensor() {
+        val intent = Intent(context, LightSensorService::class.java).apply {
+            action = LightSensorService.ACTION_STOP_LIGHT_SENSOR
+        }
+        context.startService(intent)
+    }
+
+    suspend fun updateLightSensorConfig() {
+        startLightSensor()
     }
 }

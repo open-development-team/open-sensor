@@ -22,6 +22,7 @@ data class Settings(
     val isMqttEnabled: Boolean,
     val isAccelerometerEnabled: Boolean,
     val isGyroscopeEnabled: Boolean,
+    val isLightSensorEnabled: Boolean,
     val accelerometerTopic: String,
     val accelerometerMultiplierX: String,
     val accelerometerMultiplierY: String,
@@ -33,7 +34,10 @@ data class Settings(
     val gyroscopeMultiplierY: String,
     val gyroscopeMultiplierZ: String,
     val gyroscopeRounding: String,
-    val gyroscopeSamplingPeriod: Int
+    val gyroscopeSamplingPeriod: Int,
+    val lightSensorTopic: String,
+    val lightSensorRounding: String,
+    val lightSensorSamplingPeriod: Int
 )
 
 class SettingsDataStore(val context: Context) {
@@ -60,6 +64,11 @@ class SettingsDataStore(val context: Context) {
         val GYROSCOPE_MULTIPLIER_Z = stringPreferencesKey("gyroscope_multiplier_z")
         val GYROSCOPE_ROUNDING = stringPreferencesKey("gyroscope_rounding")
         val GYROSCOPE_SAMPLING_PERIOD = intPreferencesKey("gyroscope_sampling_period")
+
+        val LIGHT_SENSOR_ENABLED = booleanPreferencesKey("light_sensor_enabled")
+        val LIGHT_SENSOR_TOPIC = stringPreferencesKey("light_sensor_topic")
+        val LIGHT_SENSOR_ROUNDING = stringPreferencesKey("light_sensor_rounding")
+        val LIGHT_SENSOR_SAMPLING_PERIOD = intPreferencesKey("light_sensor_sampling_period")
     }
 
     val settingsFlow: Flow<Settings> = context.dataStore.data
@@ -72,6 +81,7 @@ class SettingsDataStore(val context: Context) {
                 isMqttEnabled = preferences[PreferenceKeys.MQTT_ENABLED] ?: false,
                 isAccelerometerEnabled = preferences[PreferenceKeys.ACCELEROMETER_ENABLED] ?: false,
                 isGyroscopeEnabled = preferences[PreferenceKeys.GYROSCOPE_ENABLED] ?: false,
+                isLightSensorEnabled = preferences[PreferenceKeys.LIGHT_SENSOR_ENABLED] ?: false,
 
                 accelerometerTopic = preferences[PreferenceKeys.ACCELEROMETER_TOPIC] ?: "opensensor/sensor/accelerometer",
                 accelerometerMultiplierX = preferences[PreferenceKeys.ACCELEROMETER_MULTIPLIER_X] ?: "1.0",
@@ -85,7 +95,11 @@ class SettingsDataStore(val context: Context) {
                 gyroscopeMultiplierY = preferences[PreferenceKeys.GYROSCOPE_MULTIPLIER_Y] ?: "1.0",
                 gyroscopeMultiplierZ = preferences[PreferenceKeys.GYROSCOPE_MULTIPLIER_Z] ?: "1.0",
                 gyroscopeRounding = preferences[PreferenceKeys.GYROSCOPE_ROUNDING] ?: "5",
-                gyroscopeSamplingPeriod = preferences[PreferenceKeys.GYROSCOPE_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL
+                gyroscopeSamplingPeriod = preferences[PreferenceKeys.GYROSCOPE_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL,
+
+                lightSensorTopic = preferences[PreferenceKeys.LIGHT_SENSOR_TOPIC] ?: "opensensor/sensor/light",
+                lightSensorRounding = preferences[PreferenceKeys.LIGHT_SENSOR_ROUNDING] ?: "2",
+                lightSensorSamplingPeriod = preferences[PreferenceKeys.LIGHT_SENSOR_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL
             )
         }
 
@@ -115,6 +129,10 @@ class SettingsDataStore(val context: Context) {
 
     suspend fun updateGyroscopeEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PreferenceKeys.GYROSCOPE_ENABLED] = enabled }
+    }
+
+    suspend fun updateLightSensorEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferenceKeys.LIGHT_SENSOR_ENABLED] = enabled }
     }
 
     suspend fun updateAccelerometerTopic(topic: String) {
@@ -163,5 +181,17 @@ class SettingsDataStore(val context: Context) {
 
     suspend fun updateGyroscopeSamplingPeriod(samplingPeriod: Int) {
         context.dataStore.edit { it[PreferenceKeys.GYROSCOPE_SAMPLING_PERIOD] = samplingPeriod }
+    }
+
+    suspend fun updateLightSensorTopic(topic: String) {
+        context.dataStore.edit { it[PreferenceKeys.LIGHT_SENSOR_TOPIC] = topic }
+    }
+
+    suspend fun updateLightSensorRounding(rounding: String) {
+        context.dataStore.edit { it[PreferenceKeys.LIGHT_SENSOR_ROUNDING] = rounding }
+    }
+
+    suspend fun updateLightSensorSamplingPeriod(samplingPeriod: Int) {
+        context.dataStore.edit { it[PreferenceKeys.LIGHT_SENSOR_SAMPLING_PERIOD] = samplingPeriod }
     }
 }

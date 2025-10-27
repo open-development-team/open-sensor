@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.CloudQueue
+import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Sensors
@@ -91,7 +92,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val serviceManager = ServiceManager(this)
         lifecycleScope.launch {
@@ -124,7 +124,8 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
 
     val sources = listOf(
         NavItem("accelerometer", "Accelerometer", Icons.Default.Sensors),
-        NavItem("gyroscope", "Gyroscope", Icons.AutoMirrored.Filled.RotateRight)
+        NavItem("gyroscope", "Gyroscope", Icons.AutoMirrored.Filled.RotateRight),
+        NavItem("light", "Light", Icons.Default.Highlight)
     )
 
     DisposableEffect(Unit) {
@@ -219,6 +220,7 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                             "mqtt" -> "MQTT"
                             "accelerometer" -> "Accelerometer"
                             "gyroscope" -> "Gyroscope"
+                            "light" -> "Light"
                             else -> "Accelerometer"
                         }
                         Text(titleText)
@@ -311,6 +313,31 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                                     Text("Gyroscope")
                                 }
                             }
+                            "light" -> {
+                                val settings by settingsViewModel.settings.collectAsState()
+                                val coroutineScope = rememberCoroutineScope()
+                                val serviceManager = remember { ServiceManager(context) }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(end = 16.dp)
+                                ) {
+                                    Switch(
+                                        checked = settings.isLightSensorEnabled,
+                                        onCheckedChange = { enabled ->
+                                            settingsViewModel.updateLightSensorEnabled(enabled)
+                                            coroutineScope.launch {
+                                                if (enabled) {
+                                                    serviceManager.startLightSensor()
+                                                } else {
+                                                    serviceManager.stopLightSensor()
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                    Text("Light")
+                                }
+                            }
                         }
                     }
                 )
@@ -329,6 +356,9 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                 }
                 composable("gyroscope") {
                     GyroscopeScreen(settingsViewModel)
+                }
+                composable("light") {
+                    LightScreen(settingsViewModel)
                 }
                 composable("settings") {
                     SettingsScreen(settingsViewModel)
@@ -378,7 +408,6 @@ fun MqttScreen(settingsViewModel: SettingsViewModel) {
 
 @Composable
 fun AccelerometerScreen(settingsViewModel: SettingsViewModel) {
-    val context = LocalContext.current
     val dataHistory = remember { mutableStateListOf<Triple<Float, Float, Float>>() }
     val maxHistorySize = 100
 
@@ -410,7 +439,6 @@ fun AccelerometerScreen(settingsViewModel: SettingsViewModel) {
 
 @Composable
 fun GyroscopeScreen(settingsViewModel: SettingsViewModel) {
-    val context = LocalContext.current
     val dataHistory = remember { mutableStateListOf<Triple<Float, Float, Float>>() }
     val maxHistorySize = 100
 
@@ -440,6 +468,36 @@ fun GyroscopeScreen(settingsViewModel: SettingsViewModel) {
     }
 }
 
+@Composable
+fun LightScreen(settingsViewModel: SettingsViewModel) {
+    val dataHistory = remember { mutableStateListOf<Float>() }
+    val maxHistorySize = 100
+
+    LaunchedEffect(Unit) {
+        LightSensorService.lightSensorData.collect { newData ->
+            dataHistory.add(newData)
+            if (dataHistory.size > maxHistorySize) {
+                dataHistory.removeAt(0)
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        LineGraph(
+            data = dataHistory.map { Triple(it, 0f, 0f) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
 
 @Composable
 fun SettingsScreen(settingsViewModel: SettingsViewModel) {
@@ -549,6 +607,20 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
                 onSave = { settingsViewModel.updateGyroscopeRounding(it); onDismiss() },
                 keyboardType = KeyboardType.Number
             )
+            "lightSensorTopic" -> EditTextPreferenceDialog(
+                title = "Light Sensor Topic",
+                initialValue = settings.lightSensorTopic,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateLightSensorTopic(it); onDismiss() },
+                hint = "Leave empty to disable publishing"
+            )
+            "lightSensorRounding" -> EditTextPreferenceDialog(
+                title = "Light Sensor Rounding (Decimals)",
+                initialValue = settings.lightSensorRounding,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateLightSensorRounding(it); onDismiss() },
+                keyboardType = KeyboardType.Number
+            )
             "accelerometerSamplingPeriod" -> ListPreferenceDialog(
                 title = "Accelerometer Sampling Period",
                 options = samplingPeriodOptions,
@@ -563,6 +635,13 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateGyroscopeSamplingPeriod(it); onDismiss() }
             )
+            "lightSensorSamplingPeriod" -> ListPreferenceDialog(
+                title = "Light Sensor Sampling Period",
+                options = samplingPeriodOptions,
+                currentValue = settings.lightSensorSamplingPeriod,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateLightSensorSamplingPeriod(it); onDismiss() }
+            )
         }
     }
 
@@ -573,6 +652,7 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
         EditTextPreference(title = "Password", summary = "********") { launchDialog("password") }
         EditTextPreference(title = "Accelerometer Topic", summary = settings.accelerometerTopic.ifBlank { "Publishing disabled" }) { launchDialog("accelerometerTopic") }
         EditTextPreference(title = "Gyroscope Topic", summary = settings.gyroscopeTopic.ifBlank { "Publishing disabled" }) { launchDialog("gyroscopeTopic") }
+        EditTextPreference(title = "Light Sensor Topic", summary = settings.lightSensorTopic.ifBlank { "Publishing disabled" }) { launchDialog("lightSensorTopic") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -591,6 +671,12 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
         EditTextPreference(title = "Z Multiplier", summary = settings.gyroscopeMultiplierZ) { launchDialog("gyroscopeMultiplierZ") }
         EditTextPreference(title = "Rounding (Decimals)", summary = settings.gyroscopeRounding) { launchDialog("gyroscopeRounding") }
         ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.gyroscopeSamplingPeriod] ?: "Normal") { launchDialog("gyroscopeSamplingPeriod") }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        SettingsCategory(title = "Light Sensor Processing")
+        EditTextPreference(title = "Rounding (Decimals)", summary = settings.lightSensorRounding) { launchDialog("lightSensorRounding") }
+        ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.lightSensorSamplingPeriod] ?: "Normal") { launchDialog("lightSensorSamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -641,12 +727,13 @@ fun LineGraph(data: List<Triple<Float, Float, Float>>, modifier: Modifier) {
 
         if (data.isNotEmpty()) {
             data.forEachIndexed { index, (x, y, z) ->
-                val pX = index.toFloat() / (data.size - 1) * width
+                val pX = index.toFloat() / (data.size - 1).coerceAtLeast(1) * width
 
                 // Scale values relative to the overall min/max
-                val scaledX = (x - overallMin) / (overallMax - overallMin)
-                val scaledY = (y - overallMin) / (overallMax - overallMin)
-                val scaledZ = (z - overallMin) / (overallMax - overallMin)
+                val effectiveMax = if (overallMax > overallMin) overallMax - overallMin else 1f
+                val scaledX = (x - overallMin) / effectiveMax
+                val scaledY = (y - overallMin) / effectiveMax
+                val scaledZ = (z - overallMin) / effectiveMax
 
                 // Invert y-axis for drawing (0 at top, height at bottom)
                 val pYx = (1 - scaledX) * height
