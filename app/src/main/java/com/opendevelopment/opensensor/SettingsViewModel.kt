@@ -49,6 +49,13 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
         )
     )
 
+    private data class MqttSettings(
+        val isEnabled: Boolean,
+        val broker: String,
+        val username: String,
+        val password: String
+    )
+
     private data class AccelerometerSettings(
         val isEnabled: Boolean,
         val multiplierX: String,
@@ -84,6 +91,27 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
     )
 
     init {
+        // Observe MQTT settings changes
+        viewModelScope.launch {
+            settingsDataStore.settingsFlow
+                .map {
+                    MqttSettings(
+                        it.isMqttEnabled,
+                        it.broker,
+                        it.username,
+                        it.password
+                    )
+                }
+                .distinctUntilChanged()
+                .collect {
+                    if (it.isEnabled) {
+                        serviceManager.startMqtt()
+                    } else {
+                        serviceManager.stopMqtt()
+                    }
+                }
+        }
+
         // Observe accelerometer settings changes
         viewModelScope.launch {
             settingsDataStore.settingsFlow
@@ -102,6 +130,8 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
                 .collect {
                     if (it.isEnabled) {
                         serviceManager.updateAccelerometerConfig()
+                    } else {
+                        serviceManager.stopAccelerometer()
                     }
                 }
         }
@@ -124,6 +154,8 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
                 .collect {
                     if (it.isEnabled) {
                         serviceManager.updateGyroscopeConfig()
+                    } else {
+                        serviceManager.stopGyroscope()
                     }
                 }
         }
@@ -143,6 +175,8 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
                 .collect {
                     if (it.isEnabled) {
                         serviceManager.updateLightSensorConfig()
+                    } else {
+                        serviceManager.stopLightSensor()
                     }
                 }
         }
@@ -162,6 +196,8 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
                 .collect {
                     if (it.isEnabled) {
                         serviceManager.updateTemperatureSensorConfig()
+                    } else {
+                        serviceManager.stopTemperatureSensor()
                     }
                 }
         }

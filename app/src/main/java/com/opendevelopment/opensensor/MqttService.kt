@@ -31,11 +31,6 @@ class MqttService : Service() {
     private val notificationId = 3 // Unique ID for the notification
     private val channelId = "MqttServiceChannel"
 
-    private var currentBrokerUrl: String? = null
-    private var currentUsername: String? = null
-    private var currentPassword: String? = null
-    private var reconnectIntent: Intent? = null
-
     private val statusRequestReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == ACTION_REQUEST_STATUS) {
@@ -82,7 +77,6 @@ class MqttService : Service() {
             "DISCONNECTED" -> MqttState.DISCONNECTED
             else -> MqttState.ERROR
         }
-        updateNotification("Status is ${status.name.lowercase()}.")
 
         val statusIntent = Intent(MQTT_STATUS_ACTION).apply {
             putExtra("status", status.name)
@@ -96,21 +90,6 @@ class MqttService : Service() {
                 }
                 sendBroadcast(intent)
             }
-            MqttState.DISCONNECTED -> {
-                reconnectIntent?.let { intent ->
-                    val errIntent = Intent(MQTT_ERROR_ACTION).apply {
-                        putExtra("error", reason)
-                    }
-                    sendBroadcast(errIntent)
-
-                    reconnectIntent = null
-                    Log.d(tag, "Reconnecting with new parameters.")
-                    startService(intent)
-                } ?: run {
-                    Log.d(tag, "Disconnected, stopping service.")
-                    stopSelf()
-                }
-            }
             else -> {
                 // Other states do not require special handling here
             }
@@ -121,43 +100,16 @@ class MqttService : Service() {
         Log.d(tag, "onStartCommand received action: ${intent?.action}")
         when (intent?.action) {
             ACTION_CONNECT -> {
-                val brokerUrl = intent.getStringExtra("BROKER_URL")
-                val username = intent.getStringExtra("USERNAME")
-                val password = intent.getStringExtra("PASSWORD")
+                val brokerUrl = intent.getStringExtra("BROKER_URL") ?: ""
+                val username = intent.getStringExtra("USERNAME") ?: ""
+                val password = intent.getStringExtra("PASSWORD") ?: ""
 
-                if (brokerUrl.isNullOrEmpty() || username.isNullOrEmpty() || password == null) {
-                    Log.e(tag, "Connection parameters are missing.")
-                    return START_STICKY
-                }
-
-                val paramsChanged = brokerUrl != currentBrokerUrl ||
-                        username != currentUsername ||
-                        password != currentPassword
-
-                if (!paramsChanged && (status == MqttState.CONNECTED || status == MqttState.CONNECTING)) {
-                    Log.d(tag, "Already connected or connecting with same parameters.")
-                } else {
-                    currentBrokerUrl = brokerUrl
-                    currentUsername = username
-                    currentPassword = password
-
-                    if (status == MqttState.CONNECTED || status == MqttState.CONNECTING) {
-                        Log.d(tag, "Parameters changed, reconnecting.")
-                        reconnectIntent = intent
-                        nativeDisconnect()
-                    } else {
-                        Log.d(tag, "Connecting to MQTT broker.")
-                        nativeConnect(brokerUrl, "", username, password)
-                    }
-                }
+                Log.d(tag, "Connecting to MQTT broker.")
+                nativeConnect(brokerUrl, "", username, password)
             }
             ACTION_DISCONNECT -> {
-                reconnectIntent = null
-                if (status == MqttState.CONNECTED || status == MqttState.CONNECTING) {
-                    nativeDisconnect()
-                } else {
-                    stopSelf()
-                }
+                nativeDisconnect()
+                stopSelf()
             }
         }
         return START_STICKY
@@ -183,17 +135,10 @@ class MqttService : Service() {
             .build()
     }
 
-    private fun updateNotification(status: String) {
-        val notification = createNotification(status)
-        val notificationManager = getSystemService(NotificationManager::class.java)
-        notificationManager.notify(notificationId, notification)
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(statusRequestReceiver)
         Log.d(tag, "MQTT Service destroyed.")
-        reconnectIntent = null
         nativeCleanup()
     }
 

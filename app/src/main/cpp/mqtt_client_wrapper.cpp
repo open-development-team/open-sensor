@@ -19,14 +19,17 @@ MqttClientWrapper::MqttClientWrapper(JavaVM* vm, jobject callback_obj)
 }
 
 MqttClientWrapper::~MqttClientWrapper() {
-    if (client_ && client_->is_connected()) {
+    if (client_) {
         try {
             LOGD("Disconnecting from broker in destructor (sync).");
             client_->disconnect()->wait();
+            sendStatusUpdate("DISCONNECTED", "");
         } catch (const mqtt::exception& exc) {
             LOGE("MQTT disconnection error in destructor: %s", exc.what());
+            sendStatusUpdate("DISCONNECTED", exc.what());
         }
     }
+
     if (jniCallbackObj_) {
         JNIEnv* env;
         javaVM_->GetEnv((void**)&env, JNI_VERSION_1_6);
@@ -41,7 +44,7 @@ void MqttClientWrapper::connect(const std::string& broker_url, const std::string
 
     connOpts_.set_connect_timeout(5);
     connOpts_.set_keep_alive_interval(20);
-    connOpts_.set_clean_session(true); 
+    connOpts_.set_clean_session(true);
     connOpts_.set_automatic_reconnect(true);
     connOpts_.set_user_name(username);
     connOpts_.set_password(password);

@@ -13,8 +13,8 @@ import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
+import com.opendevelopment.opensensor.ui.theme.IconToast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -93,7 +93,7 @@ class GyroscopeService : Service(), SensorEventListener {
             isStarted = true
         } else {
             Log.e(tag, "Gyroscope not available on this device.")
-            Toast.makeText(this, "Gyroscope not available on this device.", Toast.LENGTH_SHORT).show()
+            IconToast.show(this, "Gyroscope not available on this device.")
             isStarted = false
         }
     }

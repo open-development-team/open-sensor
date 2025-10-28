@@ -6,9 +6,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.SensorManager
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.WindowManager
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -34,7 +31,6 @@ import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.CloudQueue
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.RotateRight
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Thermostat
@@ -84,7 +80,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.opendevelopment.opensensor.ui.theme.OpendevelopmentOpensensorTheme
-import com.opendevelopment.R
+import com.opendevelopment.opensensor.ui.theme.IconToast
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -138,17 +134,7 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == MqttService.MQTT_ERROR_ACTION) {
                     val errorMessage = intent.getStringExtra("error") ?: "MQTT Connection Error"
-                    val inflater = LayoutInflater.from(context)
-                    val layout = inflater.inflate(R.layout.custom_toast, null)
-
-                    val text: TextView = layout.findViewById(R.id.toast_text)
-                    text.text = errorMessage
-
-                    with(Toast(context)) {
-                        duration = Toast.LENGTH_LONG
-                        view = layout
-                        show()
-                    }
+                    IconToast.show(context, errorMessage, duration = Toast.LENGTH_SHORT)
                 }
             }
         }
@@ -236,7 +222,7 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                             "accelerometer" -> "Accelerometer"
                             "gyroscope" -> "Gyroscope"
                             "light" -> "Light"
-                            "temperature" -> "Temperature"
+                            "temperature" -> "Ambient Temperature"
                             else -> "Accelerometer"
                         }
                         Text(titleText)
@@ -256,8 +242,6 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                         when (currentRoute) {
                             "mqtt" -> {
                                 val settings by settingsViewModel.settings.collectAsState()
-                                val coroutineScope = rememberCoroutineScope()
-                                val serviceManager = remember { ServiceManager(context) }
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.padding(end = 16.dp)
@@ -266,23 +250,13 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                                         checked = settings.isMqttEnabled,
                                         onCheckedChange = { enabled ->
                                             settingsViewModel.updateMqttEnabled(enabled)
-                                            coroutineScope.launch {
-                                                if (enabled) {
-                                                    serviceManager.startMqtt()
-                                                } else {
-                                                    serviceManager.stopMqtt()
-                                                }
-                                            }
                                         },
                                         modifier = Modifier.padding(end = 8.dp)
                                     )
-                                    Text("MQTT")
                                 }
                             }
                             "accelerometer" -> {
                                 val settings by settingsViewModel.settings.collectAsState()
-                                val coroutineScope = rememberCoroutineScope()
-                                val serviceManager = remember { ServiceManager(context) }
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.padding(end = 16.dp)
@@ -291,23 +265,13 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                                         checked = settings.isAccelerometerEnabled,
                                         onCheckedChange = { enabled ->
                                             settingsViewModel.updateAccelerometerEnabled(enabled)
-                                            coroutineScope.launch {
-                                                if (enabled) {
-                                                    serviceManager.startAccelerometer()
-                                                } else {
-                                                    serviceManager.stopAccelerometer()
-                                                }
-                                            }
                                         },
                                         modifier = Modifier.padding(end = 8.dp)
                                     )
-                                    Text("Accelerometer")
                                 }
                             }
                             "gyroscope" -> {
                                 val settings by settingsViewModel.settings.collectAsState()
-                                val coroutineScope = rememberCoroutineScope()
-                                val serviceManager = remember { ServiceManager(context) }
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.padding(end = 16.dp)
@@ -316,23 +280,13 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                                         checked = settings.isGyroscopeEnabled,
                                         onCheckedChange = { enabled ->
                                             settingsViewModel.updateGyroscopeEnabled(enabled)
-                                            coroutineScope.launch {
-                                                if (enabled) {
-                                                    serviceManager.startGyroscope()
-                                                } else {
-                                                    serviceManager.stopGyroscope()
-                                                }
-                                            }
                                         },
                                         modifier = Modifier.padding(end = 8.dp)
                                     )
-                                    Text("Gyroscope")
                                 }
                             }
                             "light" -> {
                                 val settings by settingsViewModel.settings.collectAsState()
-                                val coroutineScope = rememberCoroutineScope()
-                                val serviceManager = remember { ServiceManager(context) }
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.padding(end = 16.dp)
@@ -341,23 +295,13 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                                         checked = settings.isLightSensorEnabled,
                                         onCheckedChange = { enabled ->
                                             settingsViewModel.updateLightSensorEnabled(enabled)
-                                            coroutineScope.launch {
-                                                if (enabled) {
-                                                    serviceManager.startLightSensor()
-                                                } else {
-                                                    serviceManager.stopLightSensor()
-                                                }
-                                            }
                                         },
                                         modifier = Modifier.padding(end = 8.dp)
                                     )
-                                    Text("Light")
                                 }
                             }
                             "temperature" -> {
                                 val settings by settingsViewModel.settings.collectAsState()
-                                val coroutineScope = rememberCoroutineScope()
-                                val serviceManager = remember { ServiceManager(context) }
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.padding(end = 16.dp)
@@ -366,17 +310,9 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                                         checked = settings.isTemperatureSensorEnabled,
                                         onCheckedChange = { enabled ->
                                             settingsViewModel.updateTemperatureSensorEnabled(enabled)
-                                            coroutineScope.launch {
-                                                if (enabled) {
-                                                    serviceManager.startTemperatureSensor()
-                                                } else {
-                                                    serviceManager.stopTemperatureSensor()
-                                                }
-                                            }
                                         },
                                         modifier = Modifier.padding(end = 8.dp)
                                     )
-                                    Text("Temperature")
                                 }
                             }
                         }
