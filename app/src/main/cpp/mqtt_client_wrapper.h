@@ -18,7 +18,7 @@ public:
     bool publish(const std::string& topic, const std::string& payload);
 
 private:
-    void sendStatusUpdate(const std::string& status);
+    void sendStatusUpdate(const std::string& status, const std::string& reason);
 
     std::unique_ptr<mqtt::async_client> client_;
     mqtt::connect_options connOpts_;
@@ -41,9 +41,8 @@ private:
         MqttClientWrapper& wrapper_;
     public:
         MqttCallback(MqttClientWrapper& wrapper) : wrapper_(wrapper) {}
+        void connected(const std::string& cause) override;
         void connection_lost(const std::string& cause) override;
-        void delivery_complete(mqtt::delivery_token_ptr tok) override;
-        void message_arrived(mqtt::const_message_ptr msg) override;
     };
     MqttCallback mqttCallback_;
 };

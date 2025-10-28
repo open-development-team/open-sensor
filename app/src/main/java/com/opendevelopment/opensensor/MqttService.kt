@@ -74,7 +74,7 @@ class MqttService : Service() {
         ContextCompat.registerReceiver(this, statusRequestReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
-    fun onMqttStatusUpdate(newStatus: String) {
+    fun onMqttStatusUpdate(newStatus: String, reason: String) {
         Log.d(tag, "onMqttStatusUpdate: $newStatus")
         status = when (newStatus) {
             "CONNECTED" -> MqttState.CONNECTED
@@ -92,12 +92,17 @@ class MqttService : Service() {
         when (status) {
             MqttState.ERROR -> {
                 val intent = Intent(MQTT_ERROR_ACTION).apply {
-                    putExtra("error", "MQTT Connection Error")
+                    putExtra("error", reason)
                 }
                 sendBroadcast(intent)
             }
             MqttState.DISCONNECTED -> {
                 reconnectIntent?.let { intent ->
+                    val errIntent = Intent(MQTT_ERROR_ACTION).apply {
+                        putExtra("error", reason)
+                    }
+                    sendBroadcast(errIntent)
+
                     reconnectIntent = null
                     Log.d(tag, "Reconnecting with new parameters.")
                     startService(intent)

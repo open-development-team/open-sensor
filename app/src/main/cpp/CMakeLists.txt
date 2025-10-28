@@ -32,6 +32,7 @@ ExternalProject_Add(
         GIT_TAG openssl-3.6.0
         GIT_SHALLOW TRUE
         USES_TERMINAL_DOWNLOAD TRUE
+        UPDATE_DISCONNECTED 1
         CONFIGURE_COMMAND
             ${CMAKE_COMMAND} -E env
                 ANDROID_NDK_ROOT=${CMAKE_ANDROID_NDK}
@@ -77,6 +78,7 @@ ExternalProject_Add(
         GIT_TAG v1.5.3
         GIT_SHALLOW TRUE
         USES_TERMINAL_DOWNLOAD TRUE
+        UPDATE_DISCONNECTED 1
         CMAKE_ARGS
             -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
             -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}

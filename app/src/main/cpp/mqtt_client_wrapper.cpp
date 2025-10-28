@@ -15,7 +15,7 @@ MqttClientWrapper::MqttClientWrapper(JavaVM* vm, jobject callback_obj)
     javaVM_->GetEnv((void**)&env, JNI_VERSION_1_6);
     jniCallbackObj_ = env->NewGlobalRef(callback_obj);
     callbackClass_ = (jclass)env->NewGlobalRef(env->GetObjectClass(jniCallbackObj_));
-    statusUpdateMethodId_ = env->GetMethodID(callbackClass_, "onMqttStatusUpdate", "(Ljava/lang/String;)V");
+    statusUpdateMethodId_ = env->GetMethodID(callbackClass_, "onMqttStatusUpdate", "(Ljava/lang/String;Ljava/lang/String;)V");
 }
 
 MqttClientWrapper::~MqttClientWrapper() {
@@ -39,6 +39,7 @@ void MqttClientWrapper::connect(const std::string& broker_url, const std::string
     client_ = std::make_unique<mqtt::async_client>(broker_url, client_id);
     client_->set_callback(mqttCallback_);
 
+    connOpts_.set_connect_timeout(5);
     connOpts_.set_keep_alive_interval(20);
     connOpts_.set_clean_session(true); 
     connOpts_.set_automatic_reconnect(true);
@@ -47,23 +48,23 @@ void MqttClientWrapper::connect(const std::string& broker_url, const std::string
 
     try {
         LOGD("Connecting to broker...");
-        sendStatusUpdate("CONNECTING");
+        sendStatusUpdate("CONNECTING", "");
         client_->connect(connOpts_, nullptr, actionCallback_);
     } catch (const mqtt::exception& exc) {
         LOGE("MQTT connection error: %s", exc.what());
-        sendStatusUpdate("ERROR");
+        sendStatusUpdate("ERROR", exc.what());
     }
 }
 
 void MqttClientWrapper::disconnect() {
     try {
-        if (client_ && client_->is_connected()) {
+        if (client_) {
             LOGD("Disconnecting from broker.");
             client_->disconnect(0, nullptr, actionCallback_);
         }
     } catch (const mqtt::exception& exc) {
         LOGE("MQTT disconnection error: %s", exc.what());
-        sendStatusUpdate("ERROR");
+        sendStatusUpdate("ERROR", exc.what());
     }
 }
 
@@ -80,7 +81,7 @@ bool MqttClientWrapper::publish(const std::string& topic, const std::string& pay
     return false;
 }
 
-void MqttClientWrapper::sendStatusUpdate(const std::string& status) {
+void MqttClientWrapper::sendStatusUpdate(const std::string& status, const std::string& reason) {
     JNIEnv* env;
     int getEnvStat = javaVM_->GetEnv((void**)&env, JNI_VERSION_1_6);
 
@@ -94,8 +95,10 @@ void MqttClientWrapper::sendStatusUpdate(const std::string& status) {
     }
 
     jstring jStatus = env->NewStringUTF(status.c_str());
-    env->CallVoidMethod(jniCallbackObj_, statusUpdateMethodId_, jStatus);
+    jstring jReason = env->NewStringUTF(reason.c_str());
+    env->CallVoidMethod(jniCallbackObj_, statusUpdateMethodId_, jStatus, jReason);
     env->DeleteLocalRef(jStatus);
+    env->DeleteLocalRef(jReason);
 
     if (mustDetach) {
         javaVM_->DetachCurrentThread();
@@ -104,27 +107,42 @@ void MqttClientWrapper::sendStatusUpdate(const std::string& status) {
 
 void MqttClientWrapper::ActionCallback::on_failure(const mqtt::token& tok) {
     LOGE("MQTT Action failure.");
-    wrapper_.sendStatusUpdate("ERROR");
+    std::string error_msg;
+    auto rc = tok.get_return_code();
+
+    if (tok.get_type() == mqtt::token::Type::CONNECT) {
+        switch (rc) {
+            case 4: // MQTT v3.1.1: Bad user name or password
+                error_msg = "Bad username or password";
+                break;
+            case 5: // MQTT v3.1.1: Not authorized
+                error_msg = "Not authorized";
+                break;
+            default:
+                error_msg = mqtt::exception::printable_error(rc, tok.get_reason_code());
+                break;
+        }
+    } else {
+        error_msg = mqtt::exception::printable_error(rc, tok.get_reason_code());
+    }
+    wrapper_.sendStatusUpdate("ERROR", error_msg);
+}
+
+void MqttClientWrapper::MqttCallback::connected(const std::string& cause) {
+    LOGW("MQTT connected: %s", cause.c_str());
+    wrapper_.sendStatusUpdate("CONNECTED", cause);
 }
 
 void MqttClientWrapper::ActionCallback::on_success(const mqtt::token& tok) {
     LOGD("MQTT Action success.");
     if (tok.get_type() == mqtt::token::Type::CONNECT) {
-        wrapper_.sendStatusUpdate("CONNECTED");
+        wrapper_.sendStatusUpdate("CONNECTED", "");
     } else if (tok.get_type() == mqtt::token::Type::DISCONNECT) {
-        wrapper_.sendStatusUpdate("DISCONNECTED");
+        wrapper_.sendStatusUpdate("DISCONNECTED", "");
     }
 }
 
 void MqttClientWrapper::MqttCallback::connection_lost(const std::string& cause) {
     LOGW("MQTT connection lost: %s", cause.c_str());
-    wrapper_.sendStatusUpdate("DISCONNECTED");
-}
-
-void MqttClientWrapper::MqttCallback::delivery_complete(mqtt::delivery_token_ptr tok) {
-    LOGD("MQTT delivery complete for token: %d", tok->get_message_id());
-}
-
-void MqttClientWrapper::MqttCallback::message_arrived(mqtt::const_message_ptr msg) {
-    LOGD("Message arrived [topic: %s, payload: %s]", msg->get_topic().c_str(), msg->to_string().c_str());
+    wrapper_.sendStatusUpdate("DISCONNECTED", cause);
 }

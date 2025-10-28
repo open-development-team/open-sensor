@@ -6,7 +6,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.SensorManager
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.WindowManager
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -82,6 +84,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.opendevelopment.opensensor.ui.theme.OpendevelopmentOpensensorTheme
+import com.opendevelopment.R
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -135,7 +138,17 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
             override fun onReceive(context: Context, intent: Intent) {
                 if (intent.action == MqttService.MQTT_ERROR_ACTION) {
                     val errorMessage = intent.getStringExtra("error") ?: "MQTT Connection Error"
-                    Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                    val inflater = LayoutInflater.from(context)
+                    val layout = inflater.inflate(R.layout.custom_toast, null)
+
+                    val text: TextView = layout.findViewById(R.id.toast_text)
+                    text.text = errorMessage
+
+                    with(Toast(context)) {
+                        duration = Toast.LENGTH_LONG
+                        view = layout
+                        show()
+                    }
                 }
             }
         }
