@@ -1,4 +1,4 @@
-# Open Sensor
+# <img src="icon.png" alt="Open Sensor Icon" height="32rem" /> Open Sensor
 
 Open Sensor is mainly written in order to provide an open-source and safe way to access sensor data of the device. It has a source-sink model where the data is collected from the source sensors and are sent to the chosen sinks.
 
