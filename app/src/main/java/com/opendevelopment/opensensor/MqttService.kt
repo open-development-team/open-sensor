@@ -15,7 +15,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import java.util.Locale
 
 class MqttService : Service() {
 

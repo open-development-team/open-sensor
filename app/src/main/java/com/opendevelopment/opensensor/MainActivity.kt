@@ -907,6 +907,12 @@ fun ListPreferenceDialog(
         title = { Text(title) },
         text = {
             Column {
+                Text(
+                    text = "Faster sampling will use more CPU power and drain battery.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                )
+                HorizontalDivider()
                 options.forEach { (value, label) ->
                     Row(
                         Modifier

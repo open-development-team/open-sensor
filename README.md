@@ -11,6 +11,7 @@ Currently the following sensors are supported as data sources:
 - Accelerometer
 - Gyroscope
 - Light
+- Temperature
 
 ## Sinks
 
