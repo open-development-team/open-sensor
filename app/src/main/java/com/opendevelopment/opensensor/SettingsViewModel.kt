@@ -26,6 +26,7 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
             isMqttEnabled = false,
             isAccelerometerEnabled = false,
             isGyroscopeEnabled = false,
+            isGravityEnabled = false,
             isLightSensorEnabled = false,
             isTemperatureSensorEnabled = false,
             accelerometerTopic = "opensensor/sensor/accelerometer",
@@ -40,6 +41,12 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
             gyroscopeMultiplierZ = "1.0",
             gyroscopeRounding = "2",
             gyroscopeSamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL,
+            gravityTopic = "opensensor/sensor/gravity",
+            gravityMultiplierX = "1.0",
+            gravityMultiplierY = "1.0",
+            gravityMultiplierZ = "1.0",
+            gravityRounding = "2",
+            gravitySamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL,
             lightSensorTopic = "opensensor/sensor/light",
             lightSensorRounding = "2",
             lightSensorSamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL,
@@ -67,6 +74,16 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
     )
 
     private data class GyroscopeSettings(
+        val isEnabled: Boolean,
+        val multiplierX: String,
+        val multiplierY: String,
+        val multiplierZ: String,
+        val rounding: String,
+        val samplingPeriod: Int,
+        val mqttTopic: String
+    )
+
+    private data class GravitySettings(
         val isEnabled: Boolean,
         val multiplierX: String,
         val multiplierY: String,
@@ -160,6 +177,30 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
                 }
         }
 
+        // Observe gravity settings changes
+        viewModelScope.launch {
+            settingsDataStore.settingsFlow
+                .map {
+                    GravitySettings(
+                        it.isGravityEnabled,
+                        it.gravityMultiplierX,
+                        it.gravityMultiplierY,
+                        it.gravityMultiplierZ,
+                        it.gravityRounding,
+                        it.gravitySamplingPeriod,
+                        it.gravityTopic
+                    )
+                }
+                .distinctUntilChanged()
+                .collect {
+                    if (it.isEnabled) {
+                        serviceManager.updateGravityConfig()
+                    } else {
+                        serviceManager.stopGravity()
+                    }
+                }
+        }
+
         // Observe light sensor settings changes
         viewModelScope.launch {
             settingsDataStore.settingsFlow
@@ -210,6 +251,7 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
     fun updateMqttEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateMqttEnabled(enabled) }
     fun updateAccelerometerEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateAccelerometerEnabled(enabled) }
     fun updateGyroscopeEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateGyroscopeEnabled(enabled) }
+    fun updateGravityEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateGravityEnabled(enabled) }
     fun updateLightSensorEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateLightSensorEnabled(enabled) }
     fun updateTemperatureSensorEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorEnabled(enabled) }
     fun updateAccelerometerTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateAccelerometerTopic(topic) }
@@ -224,6 +266,12 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
     fun updateGyroscopeMultiplierZ(multiplier: String) = viewModelScope.launch { settingsDataStore.updateGyroscopeMultiplierZ(multiplier) }
     fun updateGyroscopeRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateGyroscopeRounding(rounding) }
     fun updateGyroscopeSamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateGyroscopeSamplingPeriod(samplingPeriod) }
+    fun updateGravityTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateGravityTopic(topic) }
+    fun updateGravityMultiplierX(multiplier: String) = viewModelScope.launch { settingsDataStore.updateGravityMultiplierX(multiplier) }
+    fun updateGravityMultiplierY(multiplier: String) = viewModelScope.launch { settingsDataStore.updateGravityMultiplierY(multiplier) }
+    fun updateGravityMultiplierZ(multiplier: String) = viewModelScope.launch { settingsDataStore.updateGravityMultiplierZ(multiplier) }
+    fun updateGravityRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateGravityRounding(rounding) }
+    fun updateGravitySamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateGravitySamplingPeriod(samplingPeriod) }
     fun updateLightSensorTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateLightSensorTopic(topic) }
     fun updateLightSensorRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateLightSensorRounding(rounding) }
     fun updateLightSensorSamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateLightSensorSamplingPeriod(samplingPeriod) }

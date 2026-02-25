@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,6 +33,7 @@ import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.CloudQueue
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Thermostat
@@ -47,6 +50,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -69,19 +73,24 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.opendevelopment.opensensor.ui.theme.OpendevelopmentOpensensorTheme
 import com.opendevelopment.opensensor.ui.theme.IconToast
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.File
+
+private const val TAG = "MainActivity"
 
 class MainActivity : ComponentActivity() {
 
@@ -89,20 +98,29 @@ class MainActivity : ComponentActivity() {
         SettingsViewModelFactory(SettingsDataStore(applicationContext))
     }
 
+    // Use a state variable to hold the intent that needs to be processed for navigation
+    private var pendingNavigationIntent: Intent? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val serviceManager = ServiceManager(this)
-        lifecycleScope.launch {
-            serviceManager.startAllServices()
-        }
+        // Process the intent that started the activity
+        pendingNavigationIntent = intent
 
         setContent {
             OpendevelopmentOpensensorTheme {
                 AppNavigation(settingsViewModel)
             }
         }
+    }
+
+    // Provide a way for the Composable to access the pending intent
+    fun getPendingNavigationIntent(): Intent? = pendingNavigationIntent
+
+    // Clear the pending intent after it has been processed
+    fun clearPendingNavigationIntent() {
+        pendingNavigationIntent = null
     }
 }
 
@@ -118,6 +136,23 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
+    // Access the MainActivity to get the pending intent
+    val activity = context as MainActivity
+    val pendingIntent = activity.getPendingNavigationIntent()
+
+    // Handle navigation from the initial intent or new intents
+    LaunchedEffect(pendingIntent) {
+        val destination = pendingIntent?.getStringExtra("destination")
+        if (destination != null) {
+            navController.navigate(destination) {
+                popUpTo(navController.graph.startDestinationId)
+                launchSingleTop = true
+            }
+            // Clear the pending intent after navigation to prevent re-navigation
+            activity.clearPendingNavigationIntent()
+        }
+    }
+
     val sinks = listOf(
         NavItem("mqtt", "MQTT", Icons.Default.CloudQueue)
     )
@@ -125,6 +160,7 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
     val sources = listOf(
         NavItem("accelerometer", "Accelerometer", Icons.Default.Sensors),
         NavItem("gyroscope", "Gyroscope", Icons.AutoMirrored.Filled.RotateRight),
+        NavItem("gravity", "Gravity", Icons.Default.Public),
         NavItem("light", "Light", Icons.Default.Highlight),
         NavItem("temperature", "Ambient Temperature", Icons.Default.Thermostat)
     )
@@ -221,6 +257,7 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                             "mqtt" -> "MQTT"
                             "accelerometer" -> "Accelerometer"
                             "gyroscope" -> "Gyroscope"
+                            "gravity" -> "Gravity"
                             "light" -> "Light"
                             "temperature" -> "Ambient Temperature"
                             else -> "Accelerometer"
@@ -285,6 +322,21 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                                     )
                                 }
                             }
+                            "gravity" -> {
+                                val settings by settingsViewModel.settings.collectAsState()
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(end = 16.dp)
+                                ) {
+                                    Switch(
+                                        checked = settings.isGravityEnabled,
+                                        onCheckedChange = { enabled ->
+                                            settingsViewModel.updateGravityEnabled(enabled)
+                                        },
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                }
+                            }
                             "light" -> {
                                 val settings by settingsViewModel.settings.collectAsState()
                                 Row(
@@ -334,6 +386,9 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
                 composable("gyroscope") {
                     GyroscopeScreen(settingsViewModel)
                 }
+                composable("gravity") {
+                    GravityScreen(settingsViewModel)
+                }
                 composable("light") {
                     LightScreen(settingsViewModel)
                 }
@@ -351,38 +406,56 @@ fun AppNavigation(settingsViewModel: SettingsViewModel) {
 @Composable
 fun MqttScreen(settingsViewModel: SettingsViewModel) {
     val context = LocalContext.current
-    var connectionStatus by remember { mutableStateOf(MqttService.MqttState.DISCONNECTED.name) }
+    val settings by settingsViewModel.settings.collectAsState()
+    var logs by remember { mutableStateOf(listOf<String>()) }
 
     LaunchedEffect(Unit) {
-        val intent = Intent(MqttService.ACTION_REQUEST_STATUS)
-        context.sendBroadcast(intent)
-    }
-
-    DisposableEffect(context) {
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context, intent: Intent) {
-                if (intent.action == MqttService.MQTT_STATUS_ACTION) {
-                    connectionStatus = intent.getStringExtra("status") ?: MqttService.MqttState.DISCONNECTED.name
+        val logFile = File(context.filesDir, "mqtt_log.txt")
+        while (isActive) {
+            if (logFile.exists()) {
+                val lines = logFile.readLines().reversed()
+                if (lines != logs) {
+                    logs = lines
                 }
             }
-        }
-        val filter = IntentFilter(MqttService.MQTT_STATUS_ACTION)
-        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
-
-        onDispose {
-            context.unregisterReceiver(receiver)
+            delay(1000) // Poll every second
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("MQTT Status: $connectionStatus")
+        val status = if (settings.isMqttEnabled) "ENABLED" else "DISABLED"
+        Text("MQTT Status: $status")
         Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            "Logs:",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.align(Alignment.Start)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            color = MaterialTheme.colorScheme.surfaceVariant
+        ) {
+            LazyColumn(modifier = Modifier.padding(8.dp)) {
+                items(logs) { log ->
+                    Text(
+                        text = log,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -424,6 +497,37 @@ fun GyroscopeScreen(settingsViewModel: SettingsViewModel) {
 
     LaunchedEffect(Unit) {
         GyroscopeService.gyroscopeData.collect { newData ->
+            dataHistory.add(newData)
+            if (dataHistory.size > maxHistorySize) {
+                dataHistory.removeAt(0)
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        LineGraph(
+            data = dataHistory,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun GravityScreen(settingsViewModel: SettingsViewModel) {
+    val dataHistory = remember { mutableStateListOf<Triple<Float, Float, Float>>() }
+    val maxHistorySize = 100
+
+    LaunchedEffect(Unit) {
+        GravityService.gravityData.collect { newData ->
             dataHistory.add(newData)
             if (dataHistory.size > maxHistorySize) {
                 dataHistory.removeAt(0)
@@ -618,6 +722,41 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
                 onSave = { settingsViewModel.updateGyroscopeRounding(it); onDismiss() },
                 keyboardType = KeyboardType.Number
             )
+            "gravityTopic" -> EditTextPreferenceDialog(
+                title = "Gravity Topic",
+                initialValue = settings.gravityTopic,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateGravityTopic(it); onDismiss() },
+                hint = "Leave empty to disable publishing"
+            )
+            "gravityMultiplierX" -> EditTextPreferenceDialog(
+                title = "Gravity X Multiplier",
+                initialValue = settings.gravityMultiplierX,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateGravityMultiplierX(it); onDismiss() },
+                keyboardType = KeyboardType.Number
+            )
+            "gravityMultiplierY" -> EditTextPreferenceDialog(
+                title = "Gravity Y Multiplier",
+                initialValue = settings.gravityMultiplierY,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateGravityMultiplierY(it); onDismiss() },
+                keyboardType = KeyboardType.Number
+            )
+            "gravityMultiplierZ" -> EditTextPreferenceDialog(
+                title = "Gravity Z Multiplier",
+                initialValue = settings.gravityMultiplierZ,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateGravityMultiplierZ(it); onDismiss() },
+                keyboardType = KeyboardType.Number
+            )
+            "gravityRounding" -> EditTextPreferenceDialog(
+                title = "Gravity Rounding (Decimals)",
+                initialValue = settings.gravityRounding,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateGravityRounding(it); onDismiss() },
+                keyboardType = KeyboardType.Number
+            )
             "lightSensorTopic" -> EditTextPreferenceDialog(
                 title = "Light Sensor Topic",
                 initialValue = settings.lightSensorTopic,
@@ -660,6 +799,13 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateGyroscopeSamplingPeriod(it); onDismiss() }
             )
+            "gravitySamplingPeriod" -> ListPreferenceDialog(
+                title = "Gravity Sampling Period",
+                options = samplingPeriodOptions,
+                currentValue = settings.gravitySamplingPeriod,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateGravitySamplingPeriod(it); onDismiss() }
+            )
             "lightSensorSamplingPeriod" -> ListPreferenceDialog(
                 title = "Light Sensor Sampling Period",
                 options = samplingPeriodOptions,
@@ -684,6 +830,7 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
         EditTextPreference(title = "Password", summary = "********") { launchDialog("password") }
         EditTextPreference(title = "Accelerometer Topic", summary = settings.accelerometerTopic.ifBlank { "Publishing disabled" }) { launchDialog("accelerometerTopic") }
         EditTextPreference(title = "Gyroscope Topic", summary = settings.gyroscopeTopic.ifBlank { "Publishing disabled" }) { launchDialog("gyroscopeTopic") }
+        EditTextPreference(title = "Gravity Topic", summary = settings.gravityTopic.ifBlank { "Publishing disabled" }) { launchDialog("gravityTopic") }
         EditTextPreference(title = "Light Sensor Topic", summary = settings.lightSensorTopic.ifBlank { "Publishing disabled" }) { launchDialog("lightSensorTopic") }
         EditTextPreference(title = "Temperature Sensor Topic", summary = settings.temperatureSensorTopic.ifBlank { "Publishing disabled" }) { launchDialog("temperatureSensorTopic") }
 
@@ -704,6 +851,15 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
         EditTextPreference(title = "Z Multiplier", summary = settings.gyroscopeMultiplierZ) { launchDialog("gyroscopeMultiplierZ") }
         EditTextPreference(title = "Rounding (Decimals)", summary = settings.gyroscopeRounding) { launchDialog("gyroscopeRounding") }
         ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.gyroscopeSamplingPeriod] ?: "Normal") { launchDialog("gyroscopeSamplingPeriod") }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        SettingsCategory(title = "Gravity Processing")
+        EditTextPreference(title = "X Multiplier", summary = settings.gravityMultiplierX) { launchDialog("gravityMultiplierX") }
+        EditTextPreference(title = "Y Multiplier", summary = settings.gravityMultiplierY) { launchDialog("gravityMultiplierY") }
+        EditTextPreference(title = "Z Multiplier", summary = settings.gravityMultiplierZ) { launchDialog("gravityMultiplierZ") }
+        EditTextPreference(title = "Rounding (Decimals)", summary = settings.gravityRounding) { launchDialog("gravityRounding") }
+        ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.gravitySamplingPeriod] ?: "Normal") { launchDialog("gravitySamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

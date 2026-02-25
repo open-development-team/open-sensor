@@ -22,6 +22,10 @@ class ServiceManager(private val context: Context) {
             startGyroscope()
         }
 
+        if (settings.isGravityEnabled) {
+            startGravity()
+        }
+
         if (settings.isLightSensorEnabled) {
             startLightSensor()
         }
@@ -98,6 +102,31 @@ class ServiceManager(private val context: Context) {
 
     suspend fun updateGyroscopeConfig() {
         startGyroscope()
+    }
+
+    suspend fun startGravity() {
+        val settingsDataStore = SettingsDataStore(context)
+        val settings = settingsDataStore.settingsFlow.first()
+        val intent = Intent(context, GravityService::class.java).apply {
+            action = GravityService.ACTION_START_GRAVITY
+            putExtra("MULTIPLIER_X", settings.gravityMultiplierX.toFloatOrNull() ?: 1.0f)
+            putExtra("MULTIPLIER_Y", settings.gravityMultiplierY.toFloatOrNull() ?: 1.0f)
+            putExtra("MULTIPLIER_Z", settings.gravityMultiplierZ.toFloatOrNull() ?: 1.0f)
+            putExtra("ROUNDING", settings.gravityRounding.toIntOrNull() ?: 2)
+            putExtra("SAMPLING_PERIOD", settings.gravitySamplingPeriod)
+        }
+        context.startService(intent)
+    }
+
+    fun stopGravity() {
+        val intent = Intent(context, GravityService::class.java).apply {
+            action = GravityService.ACTION_STOP_GRAVITY
+        }
+        context.startService(intent)
+    }
+
+    suspend fun updateGravityConfig() {
+        startGravity()
     }
 
     suspend fun startLightSensor() {

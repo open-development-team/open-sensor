@@ -1,151 +1,136 @@
 #include "mqtt_client_wrapper.h"
 #include <android/log.h>
 
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/executor_work_guard.hpp>
+#include <boost/url/url_view.hpp>
+
 #define LOG_TAG "MqttClientWrapper"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 
-MqttClientWrapper::MqttClientWrapper(JavaVM* vm, jobject callback_obj)
-    : actionCallback_(*this),
-      mqttCallback_(*this),
-      javaVM_(vm) {
+// External customization point.
+namespace boost::mqtt5 {
 
-    JNIEnv* env;
-    javaVM_->GetEnv((void**)&env, JNI_VERSION_1_6);
-    jniCallbackObj_ = env->NewGlobalRef(callback_obj);
-    callbackClass_ = (jclass)env->NewGlobalRef(env->GetObjectClass(jniCallbackObj_));
-    statusUpdateMethodId_ = env->GetMethodID(callbackClass_, "onMqttStatusUpdate", "(Ljava/lang/String;Ljava/lang/String;)V");
+// Specify that the TLS handshake will be performed as a client.
+template<typename StreamBase>
+struct tls_handshake_type<boost::asio::ssl::stream<StreamBase>> {
+    static constexpr auto client = boost::asio::ssl::stream_base::client;
+};
+
+// This client uses this function to indicate which hostname it is
+// attempting to connect to at the start of the handshaking process.
+template<typename StreamBase>
+void assign_tls_sni(
+        const authority_path &ap,
+        boost::asio::ssl::context & /* ctx */,
+        boost::asio::ssl::stream<StreamBase> &stream
+) {
+    SSL_set_tlsext_host_name(stream.native_handle(), ap.host.c_str());
+}
+
+}
+
+MqttClientWrapper::MqttClientWrapper(std::string log_file_path) : logger_{std::move(log_file_path)} {
+    ioc_thread_ = std::thread([this]() {
+        LOGD("Starting io_context thread.");
+        auto work_guard = boost::asio::make_work_guard(ioc_);
+        ioc_.run();
+        LOGD("io_context thread finished.");
+    });
 }
 
 MqttClientWrapper::~MqttClientWrapper() {
-    if (client_) {
-        try {
-            LOGD("Disconnecting from broker in destructor (sync).");
-            client_->disconnect()->wait();
-            sendStatusUpdate("DISCONNECTED", "");
-        } catch (const mqtt::exception& exc) {
-            LOGE("MQTT disconnection error in destructor: %s", exc.what());
-            sendStatusUpdate("DISCONNECTED", exc.what());
-        }
-    }
-
-    if (jniCallbackObj_) {
-        JNIEnv* env;
-        javaVM_->GetEnv((void**)&env, JNI_VERSION_1_6);
-        env->DeleteGlobalRef(jniCallbackObj_);
-        env->DeleteGlobalRef(callbackClass_);
+    if (ioc_thread_.joinable()) {
+        disconnect();
+        ioc_.stop();
+        ioc_thread_.join();
     }
 }
 
 void MqttClientWrapper::connect(const std::string& broker_url, const std::string& client_id, const std::string& username, const std::string& password) {
-    client_ = std::make_unique<mqtt::async_client>(broker_url, client_id);
-    client_->set_callback(mqttCallback_);
+    boost::asio::dispatch(ioc_, [this, broker_url, client_id, username, password] {
+        logger_.log("Trying to connect...");
 
-    connOpts_.set_connect_timeout(5);
-    connOpts_.set_keep_alive_interval(20);
-    connOpts_.set_clean_session(true);
-    connOpts_.set_automatic_reconnect(true);
-    connOpts_.set_user_name(username);
-    connOpts_.set_password(password);
+        boost::urls::url_view u(broker_url);
 
-    try {
-        LOGD("Connecting to broker...");
-        sendStatusUpdate("CONNECTING", "");
-        client_->connect(connOpts_, nullptr, actionCallback_);
-    } catch (const mqtt::exception& exc) {
-        LOGE("MQTT connection error: %s", exc.what());
-        sendStatusUpdate("ERROR", exc.what());
-    }
+        try {
+            if (u.scheme() == "tls" || u.scheme() == "mqtts") {
+                auto& client = client_.emplace<mqtts_client_t>(
+                        ioc_,
+                        boost::asio::ssl::context(boost::asio::ssl::context::tls_client),
+                        logger_);
+
+                client.brokers(u.host(), u.port_number())
+                        .credentials(client_id, username, password)
+                        .connect_property(boost::mqtt5::prop::session_expiry_interval, 60)
+                        .keep_alive(30)
+                        .async_run(boost::asio::detached);
+            } else {
+                auto& client = client_.emplace<mqtt_client_t>(
+                        ioc_,
+                        std::monostate{},
+                        logger_);
+
+                client.brokers(u.host(), u.port_number())
+                        .credentials(client_id, username, password)
+                        .connect_property(boost::mqtt5::prop::session_expiry_interval, 60)
+                        .keep_alive(30)
+                        .async_run(boost::asio::detached);
+            }
+        } catch (const std::exception& e) {
+            LOGE("MQTT connection failed: %s", e.what());
+            logger_.log("MQTT connection failed: " + std::string(e.what()));
+            client_.emplace<std::monostate>();
+        }
+    });
 }
 
 void MqttClientWrapper::disconnect() {
-    try {
-        if (client_) {
-            LOGD("Disconnecting from broker.");
-            client_->disconnect(0, nullptr, actionCallback_);
+    boost::asio::dispatch(ioc_, [this]() {
+        if (!std::holds_alternative<std::monostate>(client_)) {
+            try {
+                logger_.log("Disconnecting from broker...");
+                std::visit([this](auto&& cli) {
+                    using T = std::decay_t<decltype(cli)>;
+                    if constexpr (!std::is_same_v<T, std::monostate>) {
+                        cli.async_disconnect([this](boost::mqtt5::error_code ec) {
+                            if (!ec) logger_.log("Disconnected from broker.");
+                            else logger_.log("Disconnecting from broker failed: " + ec.message());
+                        });
+                    }
+                }, client_);
+            } catch (const std::exception& e) {
+                logger_.log(std::string{"Disconnecting from broker failed: "} + e.what());
+            }
         }
-    } catch (const mqtt::exception& exc) {
-        LOGE("MQTT disconnection error: %s", exc.what());
-        sendStatusUpdate("ERROR", exc.what());
-    }
+    });
 }
 
 bool MqttClientWrapper::publish(const std::string& topic, const std::string& payload) {
-    if (client_ && client_->is_connected()) {
-        try {
-            client_->publish(topic, payload.c_str(), payload.length(), 0, true);
-            return true;
-        } catch (const mqtt::exception& exc) {
-            LOGE("MQTT publish error: %s", exc.what());
+    boost::asio::dispatch(ioc_, [this, topic, payload] {
+        if (!std::holds_alternative<std::monostate>(client_)) {
+            try {
+                std::visit([&](auto&& cli) {
+                    using T = std::decay_t<decltype(cli)>;
+                    if constexpr (!std::is_same_v<T, std::monostate>) {
+                        cli.template async_publish<boost::mqtt5::qos_e::at_most_once>(
+                                topic,
+                                payload,
+                                boost::mqtt5::retain_e::yes, boost::mqtt5::publish_props {},
+                                [this](boost::mqtt5::error_code ec) {
+                                    if (ec) logger_.log(ec.message());
+                                });
+                    }
+                }, client_);
+            } catch (const std::exception& e) {
+                LOGE("MQTT publish error: %s", e.what());
+            }
+        } else {
+            LOGW("MQTT publish called but client is not connected.");
         }
-    }
+    });
 
-    return false;
-}
-
-void MqttClientWrapper::sendStatusUpdate(const std::string& status, const std::string& reason) {
-    JNIEnv* env;
-    int getEnvStat = javaVM_->GetEnv((void**)&env, JNI_VERSION_1_6);
-
-    bool mustDetach = false;
-    if (getEnvStat == JNI_EDETACHED) {
-        if (javaVM_->AttachCurrentThread(&env, NULL) != 0) {
-            LOGE("Failed to attach current thread to JVM");
-            return;
-        }
-        mustDetach = true;
-    }
-
-    jstring jStatus = env->NewStringUTF(status.c_str());
-    jstring jReason = env->NewStringUTF(reason.c_str());
-    env->CallVoidMethod(jniCallbackObj_, statusUpdateMethodId_, jStatus, jReason);
-    env->DeleteLocalRef(jStatus);
-    env->DeleteLocalRef(jReason);
-
-    if (mustDetach) {
-        javaVM_->DetachCurrentThread();
-    }
-}
-
-void MqttClientWrapper::ActionCallback::on_failure(const mqtt::token& tok) {
-    LOGE("MQTT Action failure.");
-    std::string error_msg;
-    auto rc = tok.get_return_code();
-
-    if (tok.get_type() == mqtt::token::Type::CONNECT) {
-        switch (rc) {
-            case 4: // MQTT v3.1.1: Bad user name or password
-                error_msg = "Bad username or password";
-                break;
-            case 5: // MQTT v3.1.1: Not authorized
-                error_msg = "Not authorized";
-                break;
-            default:
-                error_msg = mqtt::exception::printable_error(rc, tok.get_reason_code());
-                break;
-        }
-    } else {
-        error_msg = mqtt::exception::printable_error(rc, tok.get_reason_code());
-    }
-    wrapper_.sendStatusUpdate("ERROR", error_msg);
-}
-
-void MqttClientWrapper::MqttCallback::connected(const std::string& cause) {
-    LOGW("MQTT connected: %s", cause.c_str());
-    wrapper_.sendStatusUpdate("CONNECTED", cause);
-}
-
-void MqttClientWrapper::ActionCallback::on_success(const mqtt::token& tok) {
-    LOGD("MQTT Action success.");
-    if (tok.get_type() == mqtt::token::Type::CONNECT) {
-        wrapper_.sendStatusUpdate("CONNECTED", "");
-    } else if (tok.get_type() == mqtt::token::Type::DISCONNECT) {
-        wrapper_.sendStatusUpdate("DISCONNECTED", "");
-    }
-}
-
-void MqttClientWrapper::MqttCallback::connection_lost(const std::string& cause) {
-    LOGW("MQTT connection lost: %s", cause.c_str());
-    wrapper_.sendStatusUpdate("DISCONNECTED", cause);
+    return true; 
 }

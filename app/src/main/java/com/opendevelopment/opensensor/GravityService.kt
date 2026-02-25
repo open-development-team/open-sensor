@@ -27,16 +27,16 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class TemperatureSensorService : Service(), SensorEventListener {
+class GravityService : Service(), SensorEventListener {
 
-    private val tag = "TemperatureSensorService"
+    private val tag = "GravityService"
     private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
 
-    private val notificationId = 5 // Unique ID for the notification
-    private val channelId = "TemperatureSensorServiceChannel"
+    private val notificationId = 5 // Unique ID for GravityService
+    private val channelId = "GravityServiceChannel"
 
     private lateinit var sensorManager: SensorManager
-    private var temperatureSensor: Sensor? = null
+    private var gravitySensor: Sensor? = null
     private var isStarted = false
     private lateinit var settingsDataStore: SettingsDataStore
 
@@ -45,7 +45,7 @@ class TemperatureSensorService : Service(), SensorEventListener {
         Log.d(tag, "Service created.")
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        temperatureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE)
+        gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
         settingsDataStore = SettingsDataStore(this)
         System.loadLibrary("opensensor_native")
 
@@ -58,20 +58,26 @@ class TemperatureSensorService : Service(), SensorEventListener {
 
         Log.d(tag, "onStartCommand received action: ${intent?.action}")
         when (intent?.action) {
-            ACTION_START_TEMPERATURE_SENSOR -> {
+            ACTION_START_GRAVITY -> {
+                val multiplierX = intent.getFloatExtra("MULTIPLIER_X", 1.0f)
+                val multiplierY = intent.getFloatExtra("MULTIPLIER_Y", 1.0f)
+                val multiplierZ = intent.getFloatExtra("MULTIPLIER_Z", 1.0f)
                 val rounding = intent.getIntExtra("ROUNDING", 2)
                 val samplingPeriod = intent.getIntExtra("SAMPLING_PERIOD", SensorManager.SENSOR_DELAY_NORMAL)
-                updateSettings(rounding)
+                updateSettings(multiplierX, multiplierY, multiplierZ, rounding)
                 start(samplingPeriod)
-                _isTemperatureSensorEnabled.value = isStarted
+                _isGravityEnabled.value = isStarted
                 if (!isStarted) {
                     serviceScope.launch {
-                        settingsDataStore.updateTemperatureSensorEnabled(false)
+                        settingsDataStore.updateGravityEnabled(false)
                     }
                     stopSelf()
                 }
             }
-            ACTION_STOP_TEMPERATURE_SENSOR -> {
+            ACTION_STOP_GRAVITY -> {
+                stopSelf()
+            }
+            ACTION_STOP_SERVICE -> {
                 stopSelf()
             }
         }
@@ -80,43 +86,43 @@ class TemperatureSensorService : Service(), SensorEventListener {
     }
 
     private fun start(samplingPeriod: Int) {
-        Log.d(tag, "Starting temperature sensor listener with sampling period: $samplingPeriod")
+        Log.d(tag, "Starting gravity listener with sampling period: $samplingPeriod")
         if (isStarted) {
             sensorManager.unregisterListener(this)
         }
-        if (temperatureSensor != null) {
-            sensorManager.registerListener(this, temperatureSensor, samplingPeriod)
+        if (gravitySensor != null) {
+            sensorManager.registerListener(this, gravitySensor, samplingPeriod)
             isStarted = true
         } else {
-            Log.e(tag, "Temperature sensor not available on this device.")
-            IconToast.show(this, "Temperature sensor not available on this device.")
+            Log.e(tag, "Gravity sensor not available on this device.")
+            IconToast.show(this, "Gravity sensor not available on this device.")
             isStarted = false
         }
     }
 
     private fun stop() {
         if (isStarted) {
-            Log.d(tag, "Stopping temperature sensor listener.")
+            Log.d(tag, "Stopping gravity listener.")
             sensorManager.unregisterListener(this)
             isStarted = false
         }
     }
 
-    private fun updateSettings(rounding: Int) {
-        nativeUpdateTemperatureSensorSettings(rounding)
+    private fun updateSettings(multiplierX: Float, multiplierY: Float, multiplierZ: Float, rounding: Int) {
+        nativeUpdateGravitySettings(multiplierX, multiplierY, multiplierZ, rounding)
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-        if (event?.sensor?.type == Sensor.TYPE_AMBIENT_TEMPERATURE) {
-            val value = event.values[0]
+        if (event?.sensor?.type == Sensor.TYPE_GRAVITY) {
+            val (x, y, z) = event.values
 
             // For the UI
             serviceScope.launch {
-                _temperatureSensorData.emit(value)
+                _gravityData.emit(Triple(x, y, z))
             }
 
             // Process data in C++
-            nativeProcessTemperatureSensorData(value)
+            nativeProcessGravityData(x, y, z)
         }
     }
 
@@ -126,7 +132,7 @@ class TemperatureSensorService : Service(), SensorEventListener {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
                 channelId,
-                "Temperature Sensor Service Channel",
+                "Gravity Service Channel",
                 NotificationManager.IMPORTANCE_DEFAULT
             )
             val manager = getSystemService(NotificationManager::class.java)
@@ -136,7 +142,7 @@ class TemperatureSensorService : Service(), SensorEventListener {
 
     private fun createNotification(): Notification {
         val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra("destination", "temperature")
+            putExtra("destination", "gravity")
         }
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -146,8 +152,8 @@ class TemperatureSensorService : Service(), SensorEventListener {
         )
 
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Temperature Sensor Service")
-            .setContentText("Monitoring temperature sensor in the background.")
+            .setContentTitle("Gravity Service")
+            .setContentText("Monitoring gravity in the background.")
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .build()
@@ -156,26 +162,28 @@ class TemperatureSensorService : Service(), SensorEventListener {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(tag, "Service destroyed.")
-        if (isTemperatureSensorEnabled.value) {
+        if (isGravityEnabled.value) {
             stop()
         }
-        _isTemperatureSensorEnabled.value = false
+        _isGravityEnabled.value = false
         serviceScope.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
-        const val ACTION_START_TEMPERATURE_SENSOR = "com.opendevelopment.opensensor.START_TEMPERATURE_SENSOR"
-        const val ACTION_STOP_TEMPERATURE_SENSOR = "com.opendevelopment.opensensor.STOP_TEMPERATURE_SENSOR"
+        const val ACTION_START_GRAVITY = "com.opendevelopment.opensensor.START_GRAVITY"
+        const val ACTION_STOP_GRAVITY = "com.opendevelopment.opensensor.STOP_GRAVITY"
 
-        private val _temperatureSensorData = MutableSharedFlow<Float>()
-        val temperatureSensorData = _temperatureSensorData.asSharedFlow()
+        const val ACTION_STOP_SERVICE = "com.opendevelopment.opensensor.STOP_SERVICE"
 
-        private val _isTemperatureSensorEnabled = MutableStateFlow(false)
-        val isTemperatureSensorEnabled = _isTemperatureSensorEnabled.asStateFlow()
+        private val _gravityData = MutableSharedFlow<Triple<Float, Float, Float>>()
+        val gravityData = _gravityData.asSharedFlow()
+
+        private val _isGravityEnabled = MutableStateFlow(false)
+        val isGravityEnabled = _isGravityEnabled.asStateFlow()
     }
 
-    private external fun nativeUpdateTemperatureSensorSettings(rounding: Int)
-    private external fun nativeProcessTemperatureSensorData(value: Float)
+    private external fun nativeUpdateGravitySettings(multiplierX: Float, multiplierY: Float, multiplierZ: Float, rounding: Int)
+    private external fun nativeProcessGravityData(x: Float, y: Float, z: Float)
 }

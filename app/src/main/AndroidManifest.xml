@@ -34,6 +34,11 @@
             android:exported="false"
             android:foregroundServiceType="specialUse" />
         <service
+            android:name="com.opendevelopment.opensensor.GravityService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
+        <service
             android:name="com.opendevelopment.opensensor.LightSensorService"
             android:enabled="true"
             android:exported="false"

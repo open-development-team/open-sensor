@@ -6,7 +6,7 @@ The main objective is to collect sensor data such as accelerometer or gyroscope 
 
 ## Usage
 
-In order to download _Open Sensor_ from Google Play, you have to join to the closed testing at the moment.
+In order to download _Open Sensor_ from Google Play, you have to join to the closed testing.
 
 To get access to the app:
 
@@ -20,7 +20,8 @@ Currently the following sensors are supported as data sources:
 - Accelerometer
 - Gyroscope
 - Light
-- Temperature
+- Ambient Temperature
+- Gravity
 
 ## Sinks
 

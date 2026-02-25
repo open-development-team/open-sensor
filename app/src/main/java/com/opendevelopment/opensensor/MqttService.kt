@@ -3,6 +3,7 @@ package com.opendevelopment.opensensor
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -13,8 +14,10 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.opendevelopment.R
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import java.io.File
 
 class MqttService : Service() {
 
@@ -52,15 +55,18 @@ class MqttService : Service() {
         Log.d(tag, "MQTT Service created.")
 
         createNotificationChannel()
-        startForeground(notificationId, createNotification(status.name))
+        startForeground(notificationId, createNotification())
 
         val settingsDataStore = SettingsDataStore(this)
         val settings = runBlocking { settingsDataStore.settingsFlow.first() }
+        val logFile = File(filesDir, "mqtt_log.txt")
 
         nativeInit(
             this,
+            logFile.absolutePath,
             settings.accelerometerTopic,
             settings.gyroscopeTopic,
+            settings.gravityTopic,
             settings.lightSensorTopic,
             settings.temperatureSensorTopic
         )
@@ -127,11 +133,23 @@ class MqttService : Service() {
         }
     }
 
-    private fun createNotification(text: String): Notification {
+    private fun createNotification(): Notification {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            putExtra("destination", "mqtt")
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("MQTT Service")
-            .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentText("Publishing MQTT messages in the background.")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(pendingIntent)
             .build()
     }
 
@@ -146,8 +164,10 @@ class MqttService : Service() {
 
     private external fun nativeInit(
         callback_obj: MqttService,
+        logFilePath: String,
         accelerometerTopic: String,
         gyroscopeTopic: String,
+        gravityTopic: String,
         lightSensorTopic: String,
         temperatureSensorTopic: String
     )
@@ -160,6 +180,7 @@ class MqttService : Service() {
     companion object {
         const val MQTT_ERROR_ACTION = "com.opendevelopment.opensensor.MQTT_ERROR"
         const val MQTT_STATUS_ACTION = "com.opendevelopment.opensensor.MQTT_STATUS"
+        const val MQTT_LOG_ACTION = "com.opendevelopment.opensensor.MQTT_LOG"
 
         const val ACTION_CONNECT = "com.opendevelopment.opensensor.MQTT_CONNECT"
         const val ACTION_DISCONNECT = "com.opendevelopment.opensensor.MQTT_DISCONNECT"

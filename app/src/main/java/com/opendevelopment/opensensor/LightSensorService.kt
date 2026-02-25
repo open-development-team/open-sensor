@@ -3,6 +3,7 @@ package com.opendevelopment.opensensor
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -14,6 +15,7 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.opendevelopment.R
 import com.opendevelopment.opensensor.ui.theme.IconToast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -133,10 +135,21 @@ class LightSensorService : Service(), SensorEventListener {
     }
 
     private fun createNotification(): Notification {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            putExtra("destination", "light")
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Light Sensor Service")
             .setContentText("Monitoring light sensor in the background.")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentIntent(pendingIntent)
             .build()
     }
 

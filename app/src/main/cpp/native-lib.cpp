@@ -14,39 +14,40 @@
 static MqttClientWrapper* mqttClientWrapper = nullptr;
 static SensorProcessor* accelerometerProcessor = nullptr;
 static SensorProcessor* gyroscopeProcessor = nullptr;
+static SensorProcessor* gravityProcessor = nullptr;
 static LightSensorProcessor* lightSensorProcessor = nullptr;
 static TemperatureSensorProcessor* temperatureSensorProcessor = nullptr;
-static JavaVM* javaVM = nullptr;
-
-// JNI_OnLoad is called when the library is loaded
-jint JNI_OnLoad(JavaVM* vm, void* reserved) {
-    javaVM = vm;
-    return JNI_VERSION_1_6;
-}
 
 extern "C" JNIEXPORT void JNICALL
 Java_com_opendevelopment_opensensor_MqttService_nativeInit(
     JNIEnv* env,
     jobject /* this */,
-    jobject callback_obj,
+    jobject /* callback_obj */,
+    jstring logFilePath,
     jstring accelerometerTopic,
     jstring gyroscopeTopic,
+    jstring gravityTopic,
     jstring lightSensorTopic,
     jstring temperatureSensorTopic) {
     if (mqttClientWrapper == nullptr) {
+        const char* logFilePathCStr = env->GetStringUTFChars(logFilePath, nullptr);
         const char* accelerometerTopicCStr = env->GetStringUTFChars(accelerometerTopic, nullptr);
         const char* gyroscopeTopicCStr = env->GetStringUTFChars(gyroscopeTopic, nullptr);
+        const char* gravityTopicCStr = env->GetStringUTFChars(gravityTopic, nullptr);
         const char* lightSensorTopicCStr = env->GetStringUTFChars(lightSensorTopic, nullptr);
         const char* temperatureSensorTopicCStr = env->GetStringUTFChars(temperatureSensorTopic, nullptr);
 
-        mqttClientWrapper = new MqttClientWrapper(javaVM, callback_obj);
+        mqttClientWrapper = new MqttClientWrapper(logFilePathCStr);
         accelerometerProcessor = new SensorProcessor(mqttClientWrapper, accelerometerTopicCStr);
         gyroscopeProcessor = new SensorProcessor(mqttClientWrapper, gyroscopeTopicCStr);
+        gravityProcessor = new SensorProcessor(mqttClientWrapper, gravityTopicCStr);
         lightSensorProcessor = new LightSensorProcessor(mqttClientWrapper, lightSensorTopicCStr);
         temperatureSensorProcessor = new TemperatureSensorProcessor(mqttClientWrapper, temperatureSensorTopicCStr);
 
+        env->ReleaseStringUTFChars(logFilePath, logFilePathCStr);
         env->ReleaseStringUTFChars(accelerometerTopic, accelerometerTopicCStr);
         env->ReleaseStringUTFChars(gyroscopeTopic, gyroscopeTopicCStr);
+        env->ReleaseStringUTFChars(gravityTopic, gravityTopicCStr);
         env->ReleaseStringUTFChars(lightSensorTopic, lightSensorTopicCStr);
         env->ReleaseStringUTFChars(temperatureSensorTopic, temperatureSensorTopicCStr);
 
@@ -86,10 +87,13 @@ Java_com_opendevelopment_opensensor_MqttService_nativeCleanup(JNIEnv* env, jobje
         accelerometerProcessor = nullptr;
         delete gyroscopeProcessor;
         gyroscopeProcessor = nullptr;
+        delete gravityProcessor;
+        gravityProcessor = nullptr;
         delete lightSensorProcessor;
         lightSensorProcessor = nullptr;
         delete temperatureSensorProcessor;
         temperatureSensorProcessor = nullptr;
+
         delete mqttClientWrapper;
         mqttClientWrapper = nullptr;
     }
@@ -124,6 +128,22 @@ Java_com_opendevelopment_opensensor_GyroscopeService_nativeProcessGyroscopeData(
         JNIEnv* env, jobject /* this */, jfloat x, jfloat y, jfloat z) {
     if (gyroscopeProcessor != nullptr) {
         gyroscopeProcessor->processData(x, y, z);
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_opendevelopment_opensensor_GravityService_nativeUpdateGravitySettings(
+        JNIEnv* env, jobject /* this */, jfloat multiplierX, jfloat multiplierY, jfloat multiplierZ, jint rounding) {
+    if (gravityProcessor != nullptr) {
+        gravityProcessor->updateSettings(multiplierX, multiplierY, multiplierZ, rounding);
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_opendevelopment_opensensor_GravityService_nativeProcessGravityData(
+        JNIEnv* env, jobject /* this */, jfloat x, jfloat y, jfloat z) {
+    if (gravityProcessor != nullptr) {
+        gravityProcessor->processData(x, y, z);
     }
 }
 

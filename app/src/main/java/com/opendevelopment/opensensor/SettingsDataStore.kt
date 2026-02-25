@@ -22,6 +22,7 @@ data class Settings(
     val isMqttEnabled: Boolean,
     val isAccelerometerEnabled: Boolean,
     val isGyroscopeEnabled: Boolean,
+    val isGravityEnabled: Boolean,
     val isLightSensorEnabled: Boolean,
     val isTemperatureSensorEnabled: Boolean,
     val accelerometerTopic: String,
@@ -36,6 +37,12 @@ data class Settings(
     val gyroscopeMultiplierZ: String,
     val gyroscopeRounding: String,
     val gyroscopeSamplingPeriod: Int,
+    val gravityTopic: String,
+    val gravityMultiplierX: String,
+    val gravityMultiplierY: String,
+    val gravityMultiplierZ: String,
+    val gravityRounding: String,
+    val gravitySamplingPeriod: Int,
     val lightSensorTopic: String,
     val lightSensorRounding: String,
     val lightSensorSamplingPeriod: Int,
@@ -69,6 +76,14 @@ class SettingsDataStore(val context: Context) {
         val GYROSCOPE_ROUNDING = stringPreferencesKey("gyroscope_rounding")
         val GYROSCOPE_SAMPLING_PERIOD = intPreferencesKey("gyroscope_sampling_period")
 
+        val GRAVITY_ENABLED = booleanPreferencesKey("gravity_enabled")
+        val GRAVITY_TOPIC = stringPreferencesKey("gravity_topic")
+        val GRAVITY_MULTIPLIER_X = stringPreferencesKey("gravity_multiplier_x")
+        val GRAVITY_MULTIPLIER_Y = stringPreferencesKey("gravity_multiplier_y")
+        val GRAVITY_MULTIPLIER_Z = stringPreferencesKey("gravity_multiplier_z")
+        val GRAVITY_ROUNDING = stringPreferencesKey("gravity_rounding")
+        val GRAVITY_SAMPLING_PERIOD = intPreferencesKey("gravity_sampling_period")
+
         val LIGHT_SENSOR_ENABLED = booleanPreferencesKey("light_sensor_enabled")
         val LIGHT_SENSOR_TOPIC = stringPreferencesKey("light_sensor_topic")
         val LIGHT_SENSOR_ROUNDING = stringPreferencesKey("light_sensor_rounding")
@@ -90,6 +105,7 @@ class SettingsDataStore(val context: Context) {
                 isMqttEnabled = preferences[PreferenceKeys.MQTT_ENABLED] ?: false,
                 isAccelerometerEnabled = preferences[PreferenceKeys.ACCELEROMETER_ENABLED] ?: false,
                 isGyroscopeEnabled = preferences[PreferenceKeys.GYROSCOPE_ENABLED] ?: false,
+                isGravityEnabled = preferences[PreferenceKeys.GRAVITY_ENABLED] ?: false,
                 isLightSensorEnabled = preferences[PreferenceKeys.LIGHT_SENSOR_ENABLED] ?: false,
                 isTemperatureSensorEnabled = preferences[PreferenceKeys.TEMPERATURE_SENSOR_ENABLED] ?: false,
 
@@ -106,6 +122,13 @@ class SettingsDataStore(val context: Context) {
                 gyroscopeMultiplierZ = preferences[PreferenceKeys.GYROSCOPE_MULTIPLIER_Z] ?: "1.0",
                 gyroscopeRounding = preferences[PreferenceKeys.GYROSCOPE_ROUNDING] ?: "2",
                 gyroscopeSamplingPeriod = preferences[PreferenceKeys.GYROSCOPE_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL,
+
+                gravityTopic = preferences[PreferenceKeys.GRAVITY_TOPIC] ?: "opensensor/sensor/gravity",
+                gravityMultiplierX = preferences[PreferenceKeys.GRAVITY_MULTIPLIER_X] ?: "1.0",
+                gravityMultiplierY = preferences[PreferenceKeys.GRAVITY_MULTIPLIER_Y] ?: "1.0",
+                gravityMultiplierZ = preferences[PreferenceKeys.GRAVITY_MULTIPLIER_Z] ?: "1.0",
+                gravityRounding = preferences[PreferenceKeys.GRAVITY_ROUNDING] ?: "2",
+                gravitySamplingPeriod = preferences[PreferenceKeys.GRAVITY_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL,
 
                 lightSensorTopic = preferences[PreferenceKeys.LIGHT_SENSOR_TOPIC] ?: "opensensor/sensor/light",
                 lightSensorRounding = preferences[PreferenceKeys.LIGHT_SENSOR_ROUNDING] ?: "2",
@@ -143,6 +166,10 @@ class SettingsDataStore(val context: Context) {
 
     suspend fun updateGyroscopeEnabled(enabled: Boolean) {
         context.dataStore.edit { it[PreferenceKeys.GYROSCOPE_ENABLED] = enabled }
+    }
+
+    suspend fun updateGravityEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferenceKeys.GRAVITY_ENABLED] = enabled }
     }
 
     suspend fun updateLightSensorEnabled(enabled: Boolean) {
@@ -199,6 +226,30 @@ class SettingsDataStore(val context: Context) {
 
     suspend fun updateGyroscopeSamplingPeriod(samplingPeriod: Int) {
         context.dataStore.edit { it[PreferenceKeys.GYROSCOPE_SAMPLING_PERIOD] = samplingPeriod }
+    }
+
+    suspend fun updateGravityTopic(topic: String) {
+        context.dataStore.edit { it[PreferenceKeys.GRAVITY_TOPIC] = topic }
+    }
+
+    suspend fun updateGravityMultiplierX(multiplier: String) {
+        context.dataStore.edit { it[PreferenceKeys.GRAVITY_MULTIPLIER_X] = multiplier }
+    }
+
+    suspend fun updateGravityMultiplierY(multiplier: String) {
+        context.dataStore.edit { it[PreferenceKeys.GRAVITY_MULTIPLIER_Y] = multiplier }
+    }
+
+    suspend fun updateGravityMultiplierZ(multiplier: String) {
+        context.dataStore.edit { it[PreferenceKeys.GRAVITY_MULTIPLIER_Z] = multiplier }
+    }
+
+    suspend fun updateGravityRounding(rounding: String) {
+        context.dataStore.edit { it[PreferenceKeys.GRAVITY_ROUNDING] = rounding }
+    }
+
+    suspend fun updateGravitySamplingPeriod(samplingPeriod: Int) {
+        context.dataStore.edit { it[PreferenceKeys.GRAVITY_SAMPLING_PERIOD] = samplingPeriod }
     }
 
     suspend fun updateLightSensorTopic(topic: String) {
