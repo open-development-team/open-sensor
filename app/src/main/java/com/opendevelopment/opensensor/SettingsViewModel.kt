@@ -114,46 +114,46 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
         }
     }
 
-    fun updateBroker(broker: String) = viewModelScope.launch { settingsDataStore.updateBroker(broker) }
-    fun updateUsername(username: String) = viewModelScope.launch { settingsDataStore.updateUsername(username) }
-    fun updatePassword(password: String) = viewModelScope.launch { settingsDataStore.updatePassword(password) }
-    fun updateAutoStart(autoStart: Boolean) = viewModelScope.launch { settingsDataStore.updateAutoStart(autoStart) }
-    fun updateMqttEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateMqttEnabled(enabled) }
-    fun updateAccelerometerEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateAccelerometerEnabled(enabled) }
-    fun updateGyroscopeEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateGyroscopeEnabled(enabled) }
-    fun updateGravityEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateGravityEnabled(enabled) }
-    fun updateLightSensorEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateLightSensorEnabled(enabled) }
-    fun updateTemperatureSensorEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorEnabled(enabled) }
-    fun updateAccelerometerTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateAccelerometerTopic(topic) }
-    fun updateAccelerometerMultiplierX(multiplier: String) = viewModelScope.launch { settingsDataStore.updateAccelerometerMultiplierX(multiplier) }
-    fun updateAccelerometerMultiplierY(multiplier: String) = viewModelScope.launch { settingsDataStore.updateAccelerometerMultiplierY(multiplier) }
-    fun updateAccelerometerMultiplierZ(multiplier: String) = viewModelScope.launch { settingsDataStore.updateAccelerometerMultiplierZ(multiplier) }
-    fun updateAccelerometerRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateAccelerometerRounding(rounding) }
-    fun updateAccelerometerSamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateAccelerometerSamplingPeriod(samplingPeriod) }
-    fun updateGyroscopeTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateGyroscopeTopic(topic) }
-    fun updateGyroscopeMultiplierX(multiplier: String) = viewModelScope.launch { settingsDataStore.updateGyroscopeMultiplierX(multiplier) }
-    fun updateGyroscopeMultiplierY(multiplier: String) = viewModelScope.launch { settingsDataStore.updateGyroscopeMultiplierY(multiplier) }
-    fun updateGyroscopeMultiplierZ(multiplier: String) = viewModelScope.launch { settingsDataStore.updateGyroscopeMultiplierZ(multiplier) }
-    fun updateGyroscopeRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateGyroscopeRounding(rounding) }
-    fun updateGyroscopeSamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateGyroscopeSamplingPeriod(samplingPeriod) }
-    fun updateGravityTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateGravityTopic(topic) }
-    fun updateGravityMultiplierX(multiplier: String) = viewModelScope.launch { settingsDataStore.updateGravityMultiplierX(multiplier) }
-    fun updateGravityMultiplierY(multiplier: String) = viewModelScope.launch { settingsDataStore.updateGravityMultiplierY(multiplier) }
-    fun updateGravityMultiplierZ(multiplier: String) = viewModelScope.launch { settingsDataStore.updateGravityMultiplierZ(multiplier) }
-    fun updateGravityRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateGravityRounding(rounding) }
-    fun updateGravitySamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateGravitySamplingPeriod(samplingPeriod) }
-    fun updateLightSensorTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateLightSensorTopic(topic) }
-    fun updateLightSensorRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateLightSensorRounding(rounding) }
-    fun updateLightSensorSamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateLightSensorSamplingPeriod(samplingPeriod) }
-    fun updateTemperatureSensorTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorTopic(topic) }
-    fun updateTemperatureSensorRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorRounding(rounding) }
-    fun updateTemperatureSensorSamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorSamplingPeriod(samplingPeriod) }
+    fun updateBroker(broker: String) { viewModelScope.launch { settingsDataStore.updateBroker(broker) } }
+    fun updateUsername(username: String) { viewModelScope.launch { settingsDataStore.updateUsername(username) } }
+    fun updatePassword(password: String) { viewModelScope.launch { settingsDataStore.updatePassword(password) } }
+    fun updateAutoStart(autoStart: Boolean) { viewModelScope.launch { settingsDataStore.updateAutoStart(autoStart) } }
+    fun updateMqttEnabled(enabled: Boolean) { viewModelScope.launch { settingsDataStore.updateMqttEnabled(enabled) } }
+    fun updateAccelerometerEnabled(enabled: Boolean) { viewModelScope.launch { settingsDataStore.updateAccelerometerEnabled(enabled) } }
+    fun updateGyroscopeEnabled(enabled: Boolean) { viewModelScope.launch { settingsDataStore.updateGyroscopeEnabled(enabled) } }
+    fun updateGravityEnabled(enabled: Boolean) { viewModelScope.launch { settingsDataStore.updateGravityEnabled(enabled) } }
+    fun updateLightSensorEnabled(enabled: Boolean) { viewModelScope.launch { settingsDataStore.updateLightSensorEnabled(enabled) } }
+    fun updateTemperatureSensorEnabled(enabled: Boolean) { viewModelScope.launch { settingsDataStore.updateTemperatureSensorEnabled(enabled) } }
+    fun updateAccelerometerTopic(topic: String) { viewModelScope.launch { settingsDataStore.updateAccelerometerTopic(topic) } }
+    fun updateAccelerometerMultiplierX(multiplier: String) { viewModelScope.launch { settingsDataStore.updateAccelerometerMultiplierX(multiplier) } }
+    fun updateAccelerometerMultiplierY(multiplier: String) { viewModelScope.launch { settingsDataStore.updateAccelerometerMultiplierY(multiplier) } }
+    fun updateAccelerometerMultiplierZ(multiplier: String) { viewModelScope.launch { settingsDataStore.updateAccelerometerMultiplierZ(multiplier) } }
+    fun updateAccelerometerRounding(rounding: String) { viewModelScope.launch { settingsDataStore.updateAccelerometerRounding(rounding) } }
+    fun updateAccelerometerSamplingPeriod(samplingPeriod: Int) { viewModelScope.launch { settingsDataStore.updateAccelerometerSamplingPeriod(samplingPeriod) } }
+    fun updateGyroscopeTopic(topic: String) { viewModelScope.launch { settingsDataStore.updateGyroscopeTopic(topic) } }
+    fun updateGyroscopeMultiplierX(multiplier: String) { viewModelScope.launch { settingsDataStore.updateGyroscopeMultiplierX(multiplier) } }
+    fun updateGyroscopeMultiplierY(multiplier: String) { viewModelScope.launch { settingsDataStore.updateGyroscopeMultiplierY(multiplier) } }
+    fun updateGyroscopeMultiplierZ(multiplier: String) { viewModelScope.launch { settingsDataStore.updateGyroscopeMultiplierZ(multiplier) } }
+    fun updateGyroscopeRounding(rounding: String) { viewModelScope.launch { settingsDataStore.updateGyroscopeRounding(rounding) } }
+    fun updateGyroscopeSamplingPeriod(samplingPeriod: Int) { viewModelScope.launch { settingsDataStore.updateGyroscopeSamplingPeriod(samplingPeriod) } }
+    fun updateGravityTopic(topic: String) { viewModelScope.launch { settingsDataStore.updateGravityTopic(topic) } }
+    fun updateGravityMultiplierX(multiplier: String) { viewModelScope.launch { settingsDataStore.updateGravityMultiplierX(multiplier) } }
+    fun updateGravityMultiplierY(multiplier: String) { viewModelScope.launch { settingsDataStore.updateGravityMultiplierY(multiplier) } }
+    fun updateGravityMultiplierZ(multiplier: String) { viewModelScope.launch { settingsDataStore.updateGravityMultiplierZ(multiplier) } }
+    fun updateGravityRounding(rounding: String) { viewModelScope.launch { settingsDataStore.updateGravityRounding(rounding) } }
+    fun updateGravitySamplingPeriod(samplingPeriod: Int) { viewModelScope.launch { settingsDataStore.updateGravitySamplingPeriod(samplingPeriod) } }
+    fun updateLightSensorTopic(topic: String) { viewModelScope.launch { settingsDataStore.updateLightSensorTopic(topic) } }
+    fun updateLightSensorRounding(rounding: String) { viewModelScope.launch { settingsDataStore.updateLightSensorRounding(rounding) } }
+    fun updateLightSensorSamplingPeriod(samplingPeriod: Int) { viewModelScope.launch { settingsDataStore.updateLightSensorSamplingPeriod(samplingPeriod) } }
+    fun updateTemperatureSensorTopic(topic: String) { viewModelScope.launch { settingsDataStore.updateTemperatureSensorTopic(topic) } }
+    fun updateTemperatureSensorRounding(rounding: String) { viewModelScope.launch { settingsDataStore.updateTemperatureSensorRounding(rounding) } }
+    fun updateTemperatureSensorSamplingPeriod(samplingPeriod: Int) { viewModelScope.launch { settingsDataStore.updateTemperatureSensorSamplingPeriod(samplingPeriod) } }
 
-    fun updateHaDiscoveryEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateHaDiscoveryEnabled(enabled) }
-    fun updateHaDiscoveryPrefix(prefix: String) = viewModelScope.launch { settingsDataStore.updateHaDiscoveryPrefix(prefix) }
-    fun updateHaDeviceName(name: String) = viewModelScope.launch { settingsDataStore.updateHaDeviceName(name) }
-    fun updateHaDeviceId(id: String) = viewModelScope.launch { settingsDataStore.updateHaDeviceId(id) }
-    fun updateAvailabilityTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateAvailabilityTopic(topic) }
+    fun updateHaDiscoveryEnabled(enabled: Boolean) { viewModelScope.launch { settingsDataStore.updateHaDiscoveryEnabled(enabled) } }
+    fun updateHaDiscoveryPrefix(prefix: String) { viewModelScope.launch { settingsDataStore.updateHaDiscoveryPrefix(prefix) } }
+    fun updateHaDeviceName(name: String) { viewModelScope.launch { settingsDataStore.updateHaDeviceName(name) } }
+    fun updateHaDeviceId(id: String) { viewModelScope.launch { settingsDataStore.updateHaDeviceId(id) } }
+    fun updateAvailabilityTopic(topic: String) { viewModelScope.launch { settingsDataStore.updateAvailabilityTopic(topic) } }
 }
 
 class SettingsViewModelFactory(private val settingsDataStore: SettingsDataStore) : ViewModelProvider.Factory {

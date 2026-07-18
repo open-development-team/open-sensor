@@ -926,162 +926,162 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
         SettingsCategory(title = "MQTT Broker")
         EditTextPreference(
             title = "Broker URL",
-            description = "MQTT broker address (e.g. tcp://192.168.1.10:1883). tls:// is supported (server cert is not verified)",
+            description = "The address of your MQTT broker (e.g., tcp://192.168.1.10:1883). Use tls:// for secure connections (server cert is not verified).",
             summary = settings.broker.ifBlank { "Not set" }
         ) { launchDialog("broker") }
         EditTextPreference(
             title = "Username",
-            description = "Optional username for authentication",
+            description = "Optional username for MQTT broker authentication.",
             summary = settings.username
         ) { launchDialog("username") }
         EditTextPreference(
             title = "Password",
-            description = "Optional password for authentication",
+            description = "Optional password for MQTT broker authentication.",
             summary = "********"
         ) { launchDialog("password") }
         EditTextPreference(
             title = "Availability Topic",
-            description = "Topic used to publish online/offline status, also used as a prefix for individual sensor statuses",
+            description = "MQTT topic where the app reports its online/offline status to Home Assistant. Also used as a prefix for individual sensor statuses.",
             summary = settings.availabilityTopic
         ) { launchDialog("availabilityTopic") }
-        EditTextPreference(
-            title = "Accelerometer Topic",
-            description = "Topic for accelerometer sensor data",
-            summary = settings.accelerometerTopic.ifBlank { "Publishing disabled" }
-        ) { launchDialog("accelerometerTopic") }
-        EditTextPreference(
-            title = "Gyroscope Topic",
-            description = "Topic for gyroscope sensor data",
-            summary = settings.gyroscopeTopic.ifBlank { "Publishing disabled" }
-        ) { launchDialog("gyroscopeTopic") }
-        EditTextPreference(
-            title = "Gravity Topic",
-            description = "Topic for gravity sensor data",
-            summary = settings.gravityTopic.ifBlank { "Publishing disabled" }
-        ) { launchDialog("gravityTopic") }
-        EditTextPreference(
-            title = "Light Sensor Topic",
-            description = "Topic for ambient light sensor data",
-            summary = settings.lightSensorTopic.ifBlank { "Publishing disabled" }
-        ) { launchDialog("lightSensorTopic") }
-        EditTextPreference(
-            title = "Temperature Sensor Topic",
-            description = "Topic for ambient temperature sensor data",
-            summary = settings.temperatureSensorTopic.ifBlank { "Publishing disabled" }
-        ) { launchDialog("temperatureSensorTopic") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        SettingsCategory(title = "Accelerometer Processing")
+        SettingsCategory(title = "Accelerometer")
+        EditTextPreference(
+            title = "Topic",
+            description = "MQTT topic for accelerometer sensor data. Leave empty to disable.",
+            summary = settings.accelerometerTopic.ifBlank { "Disabled" }
+        ) { launchDialog("accelerometerTopic") }
         EditTextPreference(
             title = "X Multiplier",
-            description = "Factor applied to the X axis value",
+            description = "Factor applied to the X-axis reading. Use for calibration.",
             summary = settings.accelerometerMultiplierX
         ) { launchDialog("accelerometerMultiplierX") }
         EditTextPreference(
             title = "Y Multiplier",
-            description = "Factor applied to the Y axis value",
+            description = "Factor applied to the Y-axis reading. Use for calibration.",
             summary = settings.accelerometerMultiplierY
         ) { launchDialog("accelerometerMultiplierY") }
         EditTextPreference(
             title = "Z Multiplier",
-            description = "Factor applied to the Z axis value",
+            description = "Factor applied to the Z-axis reading. Use for calibration.",
             summary = settings.accelerometerMultiplierZ
         ) { launchDialog("accelerometerMultiplierZ") }
         EditTextPreference(
             title = "Rounding (Decimals)",
-            description = "Number of decimal places for published values",
+            description = "Precision of the published sensor values.",
             summary = settings.accelerometerRounding
         ) { launchDialog("accelerometerRounding") }
         ListPreference(
             title = "Sampling Period",
-            description = "How often the sensor is polled",
+            description = "Determines how frequently sensor data is read and published.",
             summary = samplingPeriodOptions[settings.accelerometerSamplingPeriod] ?: "Normal"
         ) { launchDialog("accelerometerSamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        SettingsCategory(title = "Gyroscope Processing")
+        SettingsCategory(title = "Gyroscope")
+        EditTextPreference(
+            title = "Topic",
+            description = "MQTT topic for gyroscope sensor data. Leave empty to disable.",
+            summary = settings.gyroscopeTopic.ifBlank { "Disabled" }
+        ) { launchDialog("gyroscopeTopic") }
         EditTextPreference(
             title = "X Multiplier",
-            description = "Factor applied to the X axis value",
+            description = "Factor applied to the X-axis reading.",
             summary = settings.gyroscopeMultiplierX
         ) { launchDialog("gyroscopeMultiplierX") }
         EditTextPreference(
             title = "Y Multiplier",
-            description = "Factor applied to the Y axis value",
+            description = "Factor applied to the Y-axis reading.",
             summary = settings.gyroscopeMultiplierY
         ) { launchDialog("gyroscopeMultiplierY") }
         EditTextPreference(
             title = "Z Multiplier",
-            description = "Factor applied to the Z axis value",
+            description = "Factor applied to the Z-axis reading.",
             summary = settings.gyroscopeMultiplierZ
         ) { launchDialog("gyroscopeMultiplierZ") }
         EditTextPreference(
             title = "Rounding (Decimals)",
-            description = "Number of decimal places for published values",
+            description = "Precision of the published gyroscope values.",
             summary = settings.gyroscopeRounding
         ) { launchDialog("gyroscopeRounding") }
         ListPreference(
             title = "Sampling Period",
-            description = "How often the sensor is polled",
+            description = "Determines how frequently gyroscope data is read.",
             summary = samplingPeriodOptions[settings.gyroscopeSamplingPeriod] ?: "Normal"
         ) { launchDialog("gyroscopeSamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        SettingsCategory(title = "Gravity Processing")
+        SettingsCategory(title = "Gravity")
+        EditTextPreference(
+            title = "Topic",
+            description = "MQTT topic for gravity sensor data. Leave empty to disable.",
+            summary = settings.gravityTopic.ifBlank { "Disabled" }
+        ) { launchDialog("gravityTopic") }
         EditTextPreference(
             title = "X Multiplier",
-            description = "Factor applied to the X axis value",
+            description = "Factor applied to the X-axis gravity reading.",
             summary = settings.gravityMultiplierX
         ) { launchDialog("gravityMultiplierX") }
         EditTextPreference(
             title = "Y Multiplier",
-            description = "Factor applied to the Y axis value",
+            description = "Factor applied to the Y-axis gravity reading.",
             summary = settings.gravityMultiplierY
         ) { launchDialog("gravityMultiplierY") }
         EditTextPreference(
             title = "Z Multiplier",
-            description = "Factor applied to the Z axis value",
+            description = "Factor applied to the Z-axis gravity reading.",
             summary = settings.gravityMultiplierZ
         ) { launchDialog("gravityMultiplierZ") }
         EditTextPreference(
             title = "Rounding (Decimals)",
-            description = "Number of decimal places for published values",
+            description = "Precision of the published gravity values.",
             summary = settings.gravityRounding
         ) { launchDialog("gravityRounding") }
         ListPreference(
             title = "Sampling Period",
-            description = "How often the sensor is polled",
+            description = "Determines how frequently gravity data is read.",
             summary = samplingPeriodOptions[settings.gravitySamplingPeriod] ?: "Normal"
         ) { launchDialog("gravitySamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        SettingsCategory(title = "Light Sensor Processing")
+        SettingsCategory(title = "Ambient Light")
+        EditTextPreference(
+            title = "Topic",
+            description = "MQTT topic for light sensor data.",
+            summary = settings.lightSensorTopic.ifBlank { "Disabled" }
+        ) { launchDialog("lightSensorTopic") }
         EditTextPreference(
             title = "Rounding (Decimals)",
-            description = "Number of decimal places for published values",
+            description = "Precision of the published light intensity values.",
             summary = settings.lightSensorRounding
         ) { launchDialog("lightSensorRounding") }
         ListPreference(
             title = "Sampling Period",
-            description = "How often the sensor is polled",
+            description = "Determines how frequently light data is read.",
             summary = samplingPeriodOptions[settings.lightSensorSamplingPeriod] ?: "Normal"
         ) { launchDialog("lightSensorSamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-        SettingsCategory(title = "Temperature Sensor Processing")
+        SettingsCategory(title = "Ambient Temperature")
+        EditTextPreference(
+            title = "Topic",
+            description = "MQTT topic for temperature sensor data.",
+            summary = settings.temperatureSensorTopic.ifBlank { "Disabled" }
+        ) { launchDialog("temperatureSensorTopic") }
         EditTextPreference(
             title = "Rounding (Decimals)",
-            description = "Number of decimal places for published values",
+            description = "Precision of the published temperature values.",
             summary = settings.temperatureSensorRounding
         ) { launchDialog("temperatureSensorRounding") }
         ListPreference(
             title = "Sampling Period",
-            description = "How often the sensor is polled",
+            description = "Determines how frequently temperature data is read.",
             summary = samplingPeriodOptions[settings.temperatureSensorSamplingPeriod] ?: "Normal"
         ) { launchDialog("temperatureSensorSamplingPeriod") }
 
@@ -1090,31 +1090,35 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
         SettingsCategory(title = "Application")
         SwitchPreference(
             title = "Auto-start on boot",
-            summary = "Start service and connect automatically",
-            isChecked = settings.autoStart
-        ) { settingsViewModel.updateAutoStart(it) }
+            summary = settings.autoStart.let { if (it) "Enabled" else "Disabled" },
+            description = "Automatically start the MQTT service when the device boots up.",
+            isChecked = settings.autoStart,
+            onCheckedChange = { settingsViewModel.updateAutoStart(it) }
+        )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         SettingsCategory(title = "Home Assistant Discovery")
         SwitchPreference(
-            title = "Enable HA Discovery",
-            summary = "Automatically configure sensors in Home Assistant",
-            isChecked = settings.isHaDiscoveryEnabled
-        ) { settingsViewModel.updateHaDiscoveryEnabled(it) }
+            title = "Enable Discovery",
+            summary = settings.isHaDiscoveryEnabled.let { if (it) "Enabled" else "Disabled" },
+            description = "Automatically register and configure sensors in Home Assistant using MQTT Discovery.",
+            isChecked = settings.isHaDiscoveryEnabled,
+            onCheckedChange = { settingsViewModel.updateHaDiscoveryEnabled(it) }
+        )
         EditTextPreference(
             title = "Discovery Prefix",
-            description = "Prefix for discovery topics",
+            description = "The prefix Home Assistant uses for discovery (default is 'homeassistant').",
             summary = settings.haDiscoveryPrefix
         ) { launchDialog("haDiscoveryPrefix") }
         EditTextPreference(
             title = "Device Name",
-            description = "Name of the device as it appears in Home Assistant",
+            description = "The name of this device as it will appear in Home Assistant.",
             summary = settings.haDeviceName
         ) { launchDialog("haDeviceName") }
         EditTextPreference(
             title = "Device ID",
-            description = "Unique ID for the device",
+            description = "A unique identifier for this device. Used to avoid collisions in Home Assistant.",
             summary = settings.haDeviceId
         ) { launchDialog("haDeviceId") }
 
@@ -1423,13 +1427,18 @@ fun EditTextPreferenceDialog(
                     val filteredValue = when (keyboardType) {
                         KeyboardType.Number -> newValue.filter { it.isDigit() }
                         KeyboardType.Decimal -> {
-                            val filtered = newValue.filter { it.isDigit() || it == '.' }
-                            if (filtered.count { it == '.' } > 1) {
-                                val firstDotIndex = filtered.indexOf('.')
-                                filtered.substring(0, firstDotIndex + 1) +
-                                        filtered.substring(firstDotIndex + 1).replace(".", "")
+                            val filtered = newValue.filter { it.isDigit() || it == '.' || it == '-' }
+                            val signed = if (filtered.startsWith("-")) {
+                                "-" + filtered.substring(1).replace("-", "")
                             } else {
-                                filtered
+                                filtered.replace("-", "")
+                            }
+                            if (signed.count { it == '.' } > 1) {
+                                val firstDotIndex = signed.indexOf('.')
+                                signed.substring(0, firstDotIndex + 1) +
+                                        signed.substring(firstDotIndex + 1).replace(".", "")
+                            } else {
+                                signed
                             }
                         }
                         else -> newValue
@@ -1475,11 +1484,19 @@ fun SwitchPreference(
     title: String,
     summary: String,
     isChecked: Boolean,
+    description: String? = null,
     onCheckedChange: (Boolean) -> Unit
 ) {
     ListItem(
         headlineContent = { Text(text = title) },
-        supportingContent = { Text(text = summary, style = MaterialTheme.typography.bodySmall) },
+        supportingContent = {
+            Column {
+                if (description != null) {
+                    Text(text = description, style = MaterialTheme.typography.bodySmall)
+                }
+                Text(text = summary, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+        },
         trailingContent = { Switch(checked = isChecked, onCheckedChange = onCheckedChange) },
         modifier = Modifier.clickable { onCheckedChange(!isChecked) }
     )

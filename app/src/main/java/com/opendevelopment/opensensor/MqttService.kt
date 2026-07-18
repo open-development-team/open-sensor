@@ -197,11 +197,11 @@ class MqttService : Service() {
                 nativePublish(availabilityTopic, "online", true)
                 
                 // Sync individual sensor statuses
-                publishSensorStatus(availabilityTopic, "accel", settings.isAccelerometerEnabled)
-                publishSensorStatus(availabilityTopic, "gyro", settings.isGyroscopeEnabled)
-                publishSensorStatus(availabilityTopic, "gravity", settings.isGravityEnabled)
-                publishSensorStatus(availabilityTopic, "light", settings.isLightSensorEnabled)
-                publishSensorStatus(availabilityTopic, "temp", settings.isTemperatureSensorEnabled)
+                publishSensorStatus(availabilityTopic, "accel", settings.isAccelerometerEnabled && settings.accelerometerTopic.isNotBlank())
+                publishSensorStatus(availabilityTopic, "gyro", settings.isGyroscopeEnabled && settings.gyroscopeTopic.isNotBlank())
+                publishSensorStatus(availabilityTopic, "gravity", settings.isGravityEnabled && settings.gravityTopic.isNotBlank())
+                publishSensorStatus(availabilityTopic, "light", settings.isLightSensorEnabled && settings.lightSensorTopic.isNotBlank())
+                publishSensorStatus(availabilityTopic, "temp", settings.isTemperatureSensorEnabled && settings.temperatureSensorTopic.isNotBlank())
             }
         }
 
@@ -278,12 +278,25 @@ class MqttService : Service() {
         lastDiscoveryDeviceId = deviceId
         lastAvailabilityTopic = availabilityTopic
 
+        val appVersion = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (e: Exception) {
+            "0.0.1"
+        }
+
+        val origin = JSONObject().apply {
+            put("name", "OpenSensor")
+            put("sw_version", appVersion)
+            put("support_url", "https://github.com/opendevelopment/opensensor")
+        }
+
         val device = JSONObject().apply {
             put("identifiers", JSONArray().put(deviceId))
             put("name", deviceName)
             put("model", Build.MODEL)
             put("manufacturer", Build.MANUFACTURER)
-            put("sw_version", Build.VERSION.RELEASE)
+            put("sw_version", appVersion)
+            put("hw_version", "Android ${Build.VERSION.RELEASE}")
         }
 
         val globalAvailability = JSONObject().apply {
@@ -301,58 +314,66 @@ class MqttService : Service() {
         }
 
         // Accelerometer - Always publish config, but sync status
-        publishSensorStatus(availabilityTopic, "accel", settings.isAccelerometerEnabled)
+        publishSensorStatus(availabilityTopic, "accel", settings.isAccelerometerEnabled && settings.accelerometerTopic.isNotBlank())
         listOf("x", "y", "z").forEach { axis ->
             val config = JSONObject().apply {
-                put("name", "Accelerometer $axis")
+                put("name", "Accel ${axis.uppercase()}")
                 put("state_topic", settings.accelerometerTopic)
                 put("unit_of_measurement", "m/s²")
                 put("value_template", "{{ value_json.$axis }}")
                 put("unique_id", "${deviceId}_accel_$axis")
                 put("device", device)
+                put("origin", origin)
                 put("availability", getAvailability("accel"))
                 put("state_class", "measurement")
+                put("device_class", "acceleration")
+                put("icon", "mdi:vibrate")
                 put("suggested_display_precision", settings.accelerometerRounding.toIntOrNull() ?: 2)
             }
             nativePublish("$prefix/sensor/$deviceId/accel_$axis/config", config.toString(), true)
         }
 
         // Gyroscope
-        publishSensorStatus(availabilityTopic, "gyro", settings.isGyroscopeEnabled)
+        publishSensorStatus(availabilityTopic, "gyro", settings.isGyroscopeEnabled && settings.gyroscopeTopic.isNotBlank())
         listOf("x", "y", "z").forEach { axis ->
             val config = JSONObject().apply {
-                put("name", "Gyroscope $axis")
+                put("name", "Gyro ${axis.uppercase()}")
                 put("state_topic", settings.gyroscopeTopic)
                 put("unit_of_measurement", "rad/s")
                 put("value_template", "{{ value_json.$axis }}")
                 put("unique_id", "${deviceId}_gyro_$axis")
                 put("device", device)
+                put("origin", origin)
                 put("availability", getAvailability("gyro"))
                 put("state_class", "measurement")
+                put("icon", "mdi:screen-rotation")
                 put("suggested_display_precision", settings.gyroscopeRounding.toIntOrNull() ?: 2)
             }
             nativePublish("$prefix/sensor/$deviceId/gyro_$axis/config", config.toString(), true)
         }
 
         // Gravity
-        publishSensorStatus(availabilityTopic, "gravity", settings.isGravityEnabled)
+        publishSensorStatus(availabilityTopic, "gravity", settings.isGravityEnabled && settings.gravityTopic.isNotBlank())
         listOf("x", "y", "z").forEach { axis ->
             val config = JSONObject().apply {
-                put("name", "Gravity $axis")
+                put("name", "Gravity ${axis.uppercase()}")
                 put("state_topic", settings.gravityTopic)
                 put("unit_of_measurement", "m/s²")
                 put("value_template", "{{ value_json.$axis }}")
                 put("unique_id", "${deviceId}_gravity_$axis")
                 put("device", device)
+                put("origin", origin)
                 put("availability", getAvailability("gravity"))
                 put("state_class", "measurement")
+                put("device_class", "acceleration")
+                put("icon", "mdi:earth")
                 put("suggested_display_precision", settings.gravityRounding.toIntOrNull() ?: 2)
             }
             nativePublish("$prefix/sensor/$deviceId/gravity_$axis/config", config.toString(), true)
         }
 
         // Light
-        publishSensorStatus(availabilityTopic, "light", settings.isLightSensorEnabled)
+        publishSensorStatus(availabilityTopic, "light", settings.isLightSensorEnabled && settings.lightSensorTopic.isNotBlank())
         val lightConfig = JSONObject().apply {
             put("name", "Light")
             put("state_topic", settings.lightSensorTopic)
@@ -360,6 +381,7 @@ class MqttService : Service() {
             put("value_template", "{{ value_json.value }}")
             put("unique_id", "${deviceId}_light")
             put("device", device)
+            put("origin", origin)
             put("availability", getAvailability("light"))
             put("device_class", "illuminance")
             put("state_class", "measurement")
@@ -368,14 +390,15 @@ class MqttService : Service() {
         nativePublish("$prefix/sensor/$deviceId/light/config", lightConfig.toString(), true)
 
         // Temperature
-        publishSensorStatus(availabilityTopic, "temp", settings.isTemperatureSensorEnabled)
+        publishSensorStatus(availabilityTopic, "temp", settings.isTemperatureSensorEnabled && settings.temperatureSensorTopic.isNotBlank())
         val tempConfig = JSONObject().apply {
-            put("name", "Ambient Temperature")
+            put("name", "Temperature")
             put("state_topic", settings.temperatureSensorTopic)
             put("unit_of_measurement", "°C")
             put("value_template", "{{ value_json.value }}")
             put("unique_id", "${deviceId}_temp")
             put("device", device)
+            put("origin", origin)
             put("availability", getAvailability("temp"))
             put("device_class", "temperature")
             put("state_class", "measurement")
@@ -384,9 +407,9 @@ class MqttService : Service() {
         nativePublish("$prefix/sensor/$deviceId/temp/config", tempConfig.toString(), true)
     }
 
-    private fun publishSensorStatus(baseTopic: String, sensorKey: String, isEnabled: Boolean) {
+    private fun publishSensorStatus(baseTopic: String, sensorKey: String, isOnline: Boolean) {
         if (_mqttStatus.value == MqttState.CONNECTED) {
-            nativePublish("$baseTopic/$sensorKey", if (isEnabled) "online" else "offline", true)
+            nativePublish("$baseTopic/$sensorKey", if (isOnline) "online" else "offline", true)
         }
     }
 
