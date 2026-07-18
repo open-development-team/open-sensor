@@ -304,7 +304,7 @@ class MqttService : Service() {
         publishSensorStatus(availabilityTopic, "accel", settings.isAccelerometerEnabled)
         listOf("x", "y", "z").forEach { axis ->
             val config = JSONObject().apply {
-                put("name", "$deviceName Accelerometer $axis")
+                put("name", "Accelerometer $axis")
                 put("state_topic", settings.accelerometerTopic)
                 put("unit_of_measurement", "m/s²")
                 put("value_template", "{{ value_json.$axis }}")
@@ -320,7 +320,7 @@ class MqttService : Service() {
         publishSensorStatus(availabilityTopic, "gyro", settings.isGyroscopeEnabled)
         listOf("x", "y", "z").forEach { axis ->
             val config = JSONObject().apply {
-                put("name", "$deviceName Gyroscope $axis")
+                put("name", "Gyroscope $axis")
                 put("state_topic", settings.gyroscopeTopic)
                 put("unit_of_measurement", "rad/s")
                 put("value_template", "{{ value_json.$axis }}")
@@ -336,7 +336,7 @@ class MqttService : Service() {
         publishSensorStatus(availabilityTopic, "gravity", settings.isGravityEnabled)
         listOf("x", "y", "z").forEach { axis ->
             val config = JSONObject().apply {
-                put("name", "$deviceName Gravity $axis")
+                put("name", "Gravity $axis")
                 put("state_topic", settings.gravityTopic)
                 put("unit_of_measurement", "m/s²")
                 put("value_template", "{{ value_json.$axis }}")
@@ -351,7 +351,7 @@ class MqttService : Service() {
         // Light
         publishSensorStatus(availabilityTopic, "light", settings.isLightSensorEnabled)
         val lightConfig = JSONObject().apply {
-            put("name", "$deviceName Light")
+            put("name", "Light")
             put("state_topic", settings.lightSensorTopic)
             put("unit_of_measurement", "lx")
             put("value_template", "{{ value_json.value }}")
@@ -366,7 +366,7 @@ class MqttService : Service() {
         // Temperature
         publishSensorStatus(availabilityTopic, "temp", settings.isTemperatureSensorEnabled)
         val tempConfig = JSONObject().apply {
-            put("name", "$deviceName Ambient Temperature")
+            put("name", "Ambient Temperature")
             put("state_topic", settings.temperatureSensorTopic)
             put("unit_of_measurement", "°C")
             put("value_template", "{{ value_json.value }}")
