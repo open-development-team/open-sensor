@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -119,9 +120,9 @@ class LightSensorService : Service(), SensorEventListener {
         if (event?.sensor?.type == Sensor.TYPE_LIGHT) {
             val value = event.values[0]
 
-            // For the UI
-            serviceScope.launch {
-                _lightSensorData.emit(value)
+            // For the UI - only emit if there are active collectors
+            if (_lightSensorData.subscriptionCount.value > 0) {
+                _lightSensorData.tryEmit(value)
             }
 
             // Process data in C++
@@ -178,7 +179,11 @@ class LightSensorService : Service(), SensorEventListener {
         const val ACTION_START_LIGHT_SENSOR = "com.opendevelopment.opensensor.START_LIGHT_SENSOR"
         const val ACTION_STOP_LIGHT_SENSOR = "com.opendevelopment.opensensor.STOP_LIGHT_SENSOR"
 
-        private val _lightSensorData = MutableSharedFlow<Float>()
+        private val _lightSensorData = MutableSharedFlow<Float>(
+            replay = 0,
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
         val lightSensorData = _lightSensorData.asSharedFlow()
 
         private val _isLightSensorEnabled = MutableStateFlow(false)

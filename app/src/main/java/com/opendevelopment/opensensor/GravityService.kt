@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -125,9 +126,9 @@ class GravityService : Service(), SensorEventListener {
         if (event?.sensor?.type == Sensor.TYPE_GRAVITY) {
             val (x, y, z) = event.values
 
-            // For the UI
-            serviceScope.launch {
-                _gravityData.emit(Triple(x, y, z))
+            // For the UI - only emit if there are active collectors
+            if (_gravityData.subscriptionCount.value > 0) {
+                _gravityData.tryEmit(Triple(x, y, z))
             }
 
             // Process data in C++
@@ -186,7 +187,11 @@ class GravityService : Service(), SensorEventListener {
 
         const val ACTION_STOP_SERVICE = "com.opendevelopment.opensensor.STOP_SERVICE"
 
-        private val _gravityData = MutableSharedFlow<Triple<Float, Float, Float>>()
+        private val _gravityData = MutableSharedFlow<Triple<Float, Float, Float>>(
+            replay = 0,
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
         val gravityData = _gravityData.asSharedFlow()
 
         private val _isGravityEnabled = MutableStateFlow(false)

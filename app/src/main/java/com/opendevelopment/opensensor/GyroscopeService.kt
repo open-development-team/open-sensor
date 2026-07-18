@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -127,9 +128,9 @@ class GyroscopeService : Service(), SensorEventListener {
         if (event?.sensor?.type == Sensor.TYPE_GYROSCOPE) {
             val (x, y, z) = event.values
 
-            // For the UI
-            serviceScope.launch {
-                _gyroscopeData.emit(Triple(x, y, z))
+            // For the UI - only emit if there are active collectors
+            if (_gyroscopeData.subscriptionCount.value > 0) {
+                _gyroscopeData.tryEmit(Triple(x, y, z))
             }
 
             // Process data in C++
@@ -186,7 +187,11 @@ class GyroscopeService : Service(), SensorEventListener {
 
         const val ACTION_STOP_SERVICE = "com.opendevelopment.opensensor.STOP_SERVICE"
 
-        private val _gyroscopeData = MutableSharedFlow<Triple<Float, Float, Float>>()
+        private val _gyroscopeData = MutableSharedFlow<Triple<Float, Float, Float>>(
+            replay = 0,
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
         val gyroscopeData = _gyroscopeData.asSharedFlow()
 
         private val _isGyroscopeEnabled = MutableStateFlow(false)

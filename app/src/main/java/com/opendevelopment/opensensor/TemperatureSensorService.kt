@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -119,9 +120,9 @@ class TemperatureSensorService : Service(), SensorEventListener {
         if (event?.sensor?.type == Sensor.TYPE_AMBIENT_TEMPERATURE) {
             val value = event.values[0]
 
-            // For the UI
-            serviceScope.launch {
-                _temperatureSensorData.emit(value)
+            // For the UI - only emit if there are active collectors
+            if (_temperatureSensorData.subscriptionCount.value > 0) {
+                _temperatureSensorData.tryEmit(value)
             }
 
             // Process data in C++
@@ -178,7 +179,11 @@ class TemperatureSensorService : Service(), SensorEventListener {
         const val ACTION_START_TEMPERATURE_SENSOR = "com.opendevelopment.opensensor.START_TEMPERATURE_SENSOR"
         const val ACTION_STOP_TEMPERATURE_SENSOR = "com.opendevelopment.opensensor.STOP_TEMPERATURE_SENSOR"
 
-        private val _temperatureSensorData = MutableSharedFlow<Float>()
+        private val _temperatureSensorData = MutableSharedFlow<Float>(
+            replay = 0,
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
         val temperatureSensorData = _temperatureSensorData.asSharedFlow()
 
         private val _isTemperatureSensorEnabled = MutableStateFlow(false)

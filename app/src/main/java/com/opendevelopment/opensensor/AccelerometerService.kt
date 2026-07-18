@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -125,9 +126,9 @@ class AccelerometerService : Service(), SensorEventListener {
         if (event?.sensor?.type == Sensor.TYPE_LINEAR_ACCELERATION) {
             val (x, y, z) = event.values
 
-            // For the UI
-            serviceScope.launch {
-                _accelerometerData.emit(Triple(x, y, z))
+            // For the UI - only emit if there are active collectors
+            if (_accelerometerData.subscriptionCount.value > 0) {
+                _accelerometerData.tryEmit(Triple(x, y, z))
             }
 
             // Process data in C++
@@ -186,7 +187,11 @@ class AccelerometerService : Service(), SensorEventListener {
 
         const val ACTION_STOP_SERVICE = "com.opendevelopment.opensensor.STOP_SERVICE"
 
-        private val _accelerometerData = MutableSharedFlow<Triple<Float, Float, Float>>()
+        private val _accelerometerData = MutableSharedFlow<Triple<Float, Float, Float>>(
+            replay = 0,
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST
+        )
         val accelerometerData = _accelerometerData.asSharedFlow()
 
         private val _isAccelerometerEnabled = MutableStateFlow(false)

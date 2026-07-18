@@ -79,6 +79,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -463,12 +466,15 @@ fun MqttScreen(settingsViewModel: SettingsViewModel) {
 fun AccelerometerScreen(settingsViewModel: SettingsViewModel) {
     val dataHistory = remember { mutableStateListOf<Triple<Float, Float, Float>>() }
     val maxHistorySize = 100
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(Unit) {
-        AccelerometerService.accelerometerData.collect { newData ->
-            dataHistory.add(newData)
-            if (dataHistory.size > maxHistorySize) {
-                dataHistory.removeAt(0)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            AccelerometerService.accelerometerData.collect { newData ->
+                dataHistory.add(newData)
+                if (dataHistory.size > maxHistorySize) {
+                    dataHistory.removeAt(0)
+                }
             }
         }
     }
@@ -494,12 +500,15 @@ fun AccelerometerScreen(settingsViewModel: SettingsViewModel) {
 fun GyroscopeScreen(settingsViewModel: SettingsViewModel) {
     val dataHistory = remember { mutableStateListOf<Triple<Float, Float, Float>>() }
     val maxHistorySize = 100
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(Unit) {
-        GyroscopeService.gyroscopeData.collect { newData ->
-            dataHistory.add(newData)
-            if (dataHistory.size > maxHistorySize) {
-                dataHistory.removeAt(0)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            GyroscopeService.gyroscopeData.collect { newData ->
+                dataHistory.add(newData)
+                if (dataHistory.size > maxHistorySize) {
+                    dataHistory.removeAt(0)
+                }
             }
         }
     }
@@ -525,12 +534,15 @@ fun GyroscopeScreen(settingsViewModel: SettingsViewModel) {
 fun GravityScreen(settingsViewModel: SettingsViewModel) {
     val dataHistory = remember { mutableStateListOf<Triple<Float, Float, Float>>() }
     val maxHistorySize = 100
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(Unit) {
-        GravityService.gravityData.collect { newData ->
-            dataHistory.add(newData)
-            if (dataHistory.size > maxHistorySize) {
-                dataHistory.removeAt(0)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            GravityService.gravityData.collect { newData ->
+                dataHistory.add(newData)
+                if (dataHistory.size > maxHistorySize) {
+                    dataHistory.removeAt(0)
+                }
             }
         }
     }
@@ -556,12 +568,15 @@ fun GravityScreen(settingsViewModel: SettingsViewModel) {
 fun LightScreen(settingsViewModel: SettingsViewModel) {
     val dataHistory = remember { mutableStateListOf<Float>() }
     val maxHistorySize = 100
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(Unit) {
-        LightSensorService.lightSensorData.collect { newData ->
-            dataHistory.add(newData)
-            if (dataHistory.size > maxHistorySize) {
-                dataHistory.removeAt(0)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            LightSensorService.lightSensorData.collect { newData ->
+                dataHistory.add(newData)
+                if (dataHistory.size > maxHistorySize) {
+                    dataHistory.removeAt(0)
+                }
             }
         }
     }
@@ -587,12 +602,15 @@ fun LightScreen(settingsViewModel: SettingsViewModel) {
 fun TemperatureScreen(settingsViewModel: SettingsViewModel) {
     val dataHistory = remember { mutableStateListOf<Float>() }
     val maxHistorySize = 100
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(Unit) {
-        TemperatureSensorService.temperatureSensorData.collect { newData ->
-            dataHistory.add(newData)
-            if (dataHistory.size > maxHistorySize) {
-                dataHistory.removeAt(0)
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            TemperatureSensorService.temperatureSensorData.collect { newData ->
+                dataHistory.add(newData)
+                if (dataHistory.size > maxHistorySize) {
+                    dataHistory.removeAt(0)
+                }
             }
         }
     }
