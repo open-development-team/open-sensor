@@ -311,6 +311,7 @@ class MqttService : Service() {
                 put("unique_id", "${deviceId}_accel_$axis")
                 put("device", device)
                 put("availability", getAvailability("accel"))
+                put("state_class", "measurement")
                 put("suggested_display_precision", settings.accelerometerRounding.toIntOrNull() ?: 2)
             }
             nativePublish("$prefix/sensor/$deviceId/accel_$axis/config", config.toString(), true)
@@ -327,6 +328,7 @@ class MqttService : Service() {
                 put("unique_id", "${deviceId}_gyro_$axis")
                 put("device", device)
                 put("availability", getAvailability("gyro"))
+                put("state_class", "measurement")
                 put("suggested_display_precision", settings.gyroscopeRounding.toIntOrNull() ?: 2)
             }
             nativePublish("$prefix/sensor/$deviceId/gyro_$axis/config", config.toString(), true)
@@ -343,6 +345,7 @@ class MqttService : Service() {
                 put("unique_id", "${deviceId}_gravity_$axis")
                 put("device", device)
                 put("availability", getAvailability("gravity"))
+                put("state_class", "measurement")
                 put("suggested_display_precision", settings.gravityRounding.toIntOrNull() ?: 2)
             }
             nativePublish("$prefix/sensor/$deviceId/gravity_$axis/config", config.toString(), true)
@@ -359,6 +362,7 @@ class MqttService : Service() {
             put("device", device)
             put("availability", getAvailability("light"))
             put("device_class", "illuminance")
+            put("state_class", "measurement")
             put("suggested_display_precision", settings.lightSensorRounding.toIntOrNull() ?: 2)
         }
         nativePublish("$prefix/sensor/$deviceId/light/config", lightConfig.toString(), true)
@@ -374,6 +378,7 @@ class MqttService : Service() {
             put("device", device)
             put("availability", getAvailability("temp"))
             put("device_class", "temperature")
+            put("state_class", "measurement")
             put("suggested_display_precision", settings.temperatureSensorRounding.toIntOrNull() ?: 2)
         }
         nativePublish("$prefix/sensor/$deviceId/temp/config", tempConfig.toString(), true)
