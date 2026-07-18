@@ -10,6 +10,7 @@ public:
     explicit TemperatureSensorProcessor(MqttClientWrapper* mqttClientWrapper, std::string topic);
 
     void updateSettings(int rounding);
+    void setTopic(std::string topic) { topic_ = std::move(topic); }
     void processData(float value);
 
 private:

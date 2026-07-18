@@ -98,6 +98,35 @@ Java_com_opendevelopment_opensensor_MqttService_nativeInit(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_com_opendevelopment_opensensor_MqttService_nativeUpdateTopics(
+        JNIEnv* env,
+        jobject /* this */,
+        jstring accelerometerTopic,
+        jstring gyroscopeTopic,
+        jstring gravityTopic,
+        jstring lightSensorTopic,
+        jstring temperatureSensorTopic) {
+
+    const char* accelerometerTopicCStr = env->GetStringUTFChars(accelerometerTopic, nullptr);
+    const char* gyroscopeTopicCStr = env->GetStringUTFChars(gyroscopeTopic, nullptr);
+    const char* gravityTopicCStr = env->GetStringUTFChars(gravityTopic, nullptr);
+    const char* lightSensorTopicCStr = env->GetStringUTFChars(lightSensorTopic, nullptr);
+    const char* temperatureSensorTopicCStr = env->GetStringUTFChars(temperatureSensorTopic, nullptr);
+
+    if (accelerometerProcessor != nullptr) accelerometerProcessor->setTopic(accelerometerTopicCStr);
+    if (gyroscopeProcessor != nullptr) gyroscopeProcessor->setTopic(gyroscopeTopicCStr);
+    if (gravityProcessor != nullptr) gravityProcessor->setTopic(gravityTopicCStr);
+    if (lightSensorProcessor != nullptr) lightSensorProcessor->setTopic(lightSensorTopicCStr);
+    if (temperatureSensorProcessor != nullptr) temperatureSensorProcessor->setTopic(temperatureSensorTopicCStr);
+
+    env->ReleaseStringUTFChars(accelerometerTopic, accelerometerTopicCStr);
+    env->ReleaseStringUTFChars(gyroscopeTopic, gyroscopeTopicCStr);
+    env->ReleaseStringUTFChars(gravityTopic, gravityTopicCStr);
+    env->ReleaseStringUTFChars(lightSensorTopic, lightSensorTopicCStr);
+    env->ReleaseStringUTFChars(temperatureSensorTopic, temperatureSensorTopicCStr);
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_com_opendevelopment_opensensor_MqttService_nativeConnect(JNIEnv* env, jobject /* this */, jstring brokerUrl, jstring clientId, jstring username, jstring password, jstring willTopic, jstring willPayload) {
     if (mqttClientWrapper != nullptr) {
         const char* brokerUrlCStr = env->GetStringUTFChars(brokerUrl, nullptr);

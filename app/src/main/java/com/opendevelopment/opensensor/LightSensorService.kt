@@ -21,10 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class LightSensorService : Service(), SensorEventListener {
@@ -40,6 +37,12 @@ class LightSensorService : Service(), SensorEventListener {
     private var isStarted = false
     private lateinit var settingsDataStore: SettingsDataStore
 
+    private data class LightSensorConfig(
+        val isEnabled: Boolean,
+        val rounding: Int,
+        val samplingPeriod: Int
+    )
+
     override fun onCreate() {
         super.onCreate()
         Log.d(tag, "Service created.")
@@ -50,32 +53,38 @@ class LightSensorService : Service(), SensorEventListener {
         System.loadLibrary("opensensor_native")
 
         createNotificationChannel()
+
+        serviceScope.launch {
+            settingsDataStore.settingsFlow
+                .map { s: Settings ->
+                    LightSensorConfig(
+                        s.isLightSensorEnabled,
+                        s.lightSensorRounding.toIntOrNull() ?: 2,
+                        s.lightSensorSamplingPeriod
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { config: LightSensorConfig ->
+                    if (!config.isEnabled) {
+                        stopSelf()
+                        return@collect
+                    }
+
+                    updateSettings(config.rounding)
+                    start(config.samplingPeriod)
+                    _isLightSensorEnabled.value = isStarted
+
+                    if (!isStarted) {
+                        settingsDataStore.updateLightSensorEnabled(false)
+                        stopSelf()
+                    }
+                }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = createNotification()
         startForeground(notificationId, notification)
-
-        Log.d(tag, "onStartCommand received action: ${intent?.action}")
-        when (intent?.action) {
-            ACTION_START_LIGHT_SENSOR -> {
-                val rounding = intent.getIntExtra("ROUNDING", 2)
-                val samplingPeriod = intent.getIntExtra("SAMPLING_PERIOD", SensorManager.SENSOR_DELAY_NORMAL)
-                updateSettings(rounding)
-                start(samplingPeriod)
-                _isLightSensorEnabled.value = isStarted
-                if (!isStarted) {
-                    serviceScope.launch {
-                        settingsDataStore.updateLightSensorEnabled(false)
-                    }
-                    stopSelf()
-                }
-            }
-            ACTION_STOP_LIGHT_SENSOR -> {
-                stopSelf()
-            }
-        }
-
         return START_STICKY
     }
 

@@ -21,10 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class GyroscopeService : Service(), SensorEventListener {
@@ -40,6 +37,15 @@ class GyroscopeService : Service(), SensorEventListener {
     private var isStarted = false
     private lateinit var settingsDataStore: SettingsDataStore
 
+    private data class GyroscopeConfig(
+        val isEnabled: Boolean,
+        val multiplierX: Float,
+        val multiplierY: Float,
+        val multiplierZ: Float,
+        val rounding: Int,
+        val samplingPeriod: Int
+    )
+
     override fun onCreate() {
         super.onCreate()
         Log.d(tag, "Service created.")
@@ -50,38 +56,41 @@ class GyroscopeService : Service(), SensorEventListener {
         System.loadLibrary("opensensor_native")
 
         createNotificationChannel()
+
+        serviceScope.launch {
+            settingsDataStore.settingsFlow
+                .map { s: Settings ->
+                    GyroscopeConfig(
+                        s.isGyroscopeEnabled,
+                        s.gyroscopeMultiplierX.toFloatOrNull() ?: 1.0f,
+                        s.gyroscopeMultiplierY.toFloatOrNull() ?: 1.0f,
+                        s.gyroscopeMultiplierZ.toFloatOrNull() ?: 1.0f,
+                        s.gyroscopeRounding.toIntOrNull() ?: 2,
+                        s.gyroscopeSamplingPeriod
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { config: GyroscopeConfig ->
+                    if (!config.isEnabled) {
+                        stopSelf()
+                        return@collect
+                    }
+
+                    updateSettings(config.multiplierX, config.multiplierY, config.multiplierZ, config.rounding)
+                    start(config.samplingPeriod)
+                    _isGyroscopeEnabled.value = isStarted
+
+                    if (!isStarted) {
+                        settingsDataStore.updateGyroscopeEnabled(false)
+                        stopSelf()
+                    }
+                }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = createNotification()
         startForeground(notificationId, notification)
-
-        Log.d(tag, "onStartCommand received action: ${intent?.action}")
-        when (intent?.action) {
-            ACTION_START_GYROSCOPE -> {
-                val multiplierX = intent.getFloatExtra("GYROSCOPE_MULTIPLIER_X", 1.0f)
-                val multiplierY = intent.getFloatExtra("GYROSCOPE_MULTIPLIER_Y", 1.0f)
-                val multiplierZ = intent.getFloatExtra("GYROSCOPE_MULTIPLIER_Z", 1.0f)
-                val rounding = intent.getIntExtra("GYROSCOPE_ROUNDING", 2)
-                val samplingPeriod = intent.getIntExtra("GYROSCOPE_SAMPLING_PERIOD", SensorManager.SENSOR_DELAY_NORMAL)
-                updateSettings(multiplierX, multiplierY, multiplierZ, rounding)
-                start(samplingPeriod)
-                _isGyroscopeEnabled.value = isStarted
-                if (!isStarted) {
-                    serviceScope.launch {
-                        settingsDataStore.updateGyroscopeEnabled(false)
-                    }
-                    stopSelf()
-                }
-            }
-            ACTION_STOP_GYROSCOPE -> {
-                stopSelf()
-            }
-            ACTION_STOP_SERVICE -> {
-                stopSelf()
-            }
-        }
-
         return START_STICKY
     }
 

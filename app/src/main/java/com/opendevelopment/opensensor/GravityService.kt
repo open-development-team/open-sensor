@@ -21,10 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class GravityService : Service(), SensorEventListener {
@@ -40,6 +37,15 @@ class GravityService : Service(), SensorEventListener {
     private var isStarted = false
     private lateinit var settingsDataStore: SettingsDataStore
 
+    private data class GravityConfig(
+        val isEnabled: Boolean,
+        val multiplierX: Float,
+        val multiplierY: Float,
+        val multiplierZ: Float,
+        val rounding: Int,
+        val samplingPeriod: Int
+    )
+
     override fun onCreate() {
         super.onCreate()
         Log.d(tag, "Service created.")
@@ -50,38 +56,41 @@ class GravityService : Service(), SensorEventListener {
         System.loadLibrary("opensensor_native")
 
         createNotificationChannel()
+
+        serviceScope.launch {
+            settingsDataStore.settingsFlow
+                .map { s: Settings ->
+                    GravityConfig(
+                        s.isGravityEnabled,
+                        s.gravityMultiplierX.toFloatOrNull() ?: 1.0f,
+                        s.gravityMultiplierY.toFloatOrNull() ?: 1.0f,
+                        s.gravityMultiplierZ.toFloatOrNull() ?: 1.0f,
+                        s.gravityRounding.toIntOrNull() ?: 2,
+                        s.gravitySamplingPeriod
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { config: GravityConfig ->
+                    if (!config.isEnabled) {
+                        stopSelf()
+                        return@collect
+                    }
+
+                    updateSettings(config.multiplierX, config.multiplierY, config.multiplierZ, config.rounding)
+                    start(config.samplingPeriod)
+                    _isGravityEnabled.value = isStarted
+
+                    if (!isStarted) {
+                        settingsDataStore.updateGravityEnabled(false)
+                        stopSelf()
+                    }
+                }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = createNotification()
         startForeground(notificationId, notification)
-
-        Log.d(tag, "onStartCommand received action: ${intent?.action}")
-        when (intent?.action) {
-            ACTION_START_GRAVITY -> {
-                val multiplierX = intent.getFloatExtra("MULTIPLIER_X", 1.0f)
-                val multiplierY = intent.getFloatExtra("MULTIPLIER_Y", 1.0f)
-                val multiplierZ = intent.getFloatExtra("MULTIPLIER_Z", 1.0f)
-                val rounding = intent.getIntExtra("ROUNDING", 2)
-                val samplingPeriod = intent.getIntExtra("SAMPLING_PERIOD", SensorManager.SENSOR_DELAY_NORMAL)
-                updateSettings(multiplierX, multiplierY, multiplierZ, rounding)
-                start(samplingPeriod)
-                _isGravityEnabled.value = isStarted
-                if (!isStarted) {
-                    serviceScope.launch {
-                        settingsDataStore.updateGravityEnabled(false)
-                    }
-                    stopSelf()
-                }
-            }
-            ACTION_STOP_GRAVITY -> {
-                stopSelf()
-            }
-            ACTION_STOP_SERVICE -> {
-                stopSelf()
-            }
-        }
-
         return START_STICKY
     }
 

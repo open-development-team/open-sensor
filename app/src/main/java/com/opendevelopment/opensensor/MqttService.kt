@@ -15,7 +15,12 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.opendevelopment.R
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -24,6 +29,7 @@ import java.io.File
 class MqttService : Service() {
 
     private val tag = "MqttService"
+    private val serviceScope = CoroutineScope(Dispatchers.Default + Job())
 
     enum class MqttState {
         DISCONNECTED,
@@ -32,7 +38,9 @@ class MqttService : Service() {
         ERROR
     }
 
-    private var status: MqttState = MqttState.DISCONNECTED
+    private val _mqttStatus = MutableStateFlow(MqttState.DISCONNECTED)
+    val mqttStatus = _mqttStatus.asStateFlow()
+
     private val notificationId = 3 // Unique ID for the notification
     private val channelId = "MqttServiceChannel"
 
@@ -42,12 +50,28 @@ class MqttService : Service() {
 
     private lateinit var settingsDataStore: SettingsDataStore
 
+    private data class ConnectionConfig(
+        val isEnabled: Boolean,
+        val brokerUrl: String,
+        val username: String,
+        val password: String,
+        val availabilityTopic: String
+    )
+
+    private data class TopicConfig(
+        val accelerometerTopic: String,
+        val gyroscopeTopic: String,
+        val gravityTopic: String,
+        val lightSensorTopic: String,
+        val temperatureSensorTopic: String
+    )
+
     private val statusRequestReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == ACTION_REQUEST_STATUS) {
                 Log.d(tag, "Received status request broadcast")
                 val statusIntent = Intent(MQTT_STATUS_ACTION).apply {
-                    putExtra("status", status.name)
+                    putExtra("status", _mqttStatus.value.name)
                 }
                 sendBroadcast(statusIntent)
             }
@@ -66,91 +90,132 @@ class MqttService : Service() {
         startForeground(notificationId, createNotification())
 
         settingsDataStore = SettingsDataStore(this)
-        val settings = runBlocking { settingsDataStore.settingsFlow.first() }
         val logFile = File(filesDir, "mqtt_log.txt")
-
-        nativeInit(
-            this,
-            logFile.absolutePath,
-            settings.accelerometerTopic,
-            settings.gyroscopeTopic,
-            settings.gravityTopic,
-            settings.lightSensorTopic,
-            settings.temperatureSensorTopic
-        )
 
         val filter = IntentFilter(ACTION_REQUEST_STATUS)
         ContextCompat.registerReceiver(this, statusRequestReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+
+        // Reactive initialization and connection management
+        serviceScope.launch {
+            val initialSettings = settingsDataStore.settingsFlow.first()
+            nativeInit(
+                this@MqttService,
+                logFile.absolutePath,
+                initialSettings.accelerometerTopic,
+                initialSettings.gyroscopeTopic,
+                initialSettings.gravityTopic,
+                initialSettings.lightSensorTopic,
+                initialSettings.temperatureSensorTopic
+            )
+
+            // Observe connection settings
+            launch {
+                settingsDataStore.settingsFlow
+                    .map { s: Settings ->
+                        ConnectionConfig(
+                            s.isMqttEnabled,
+                            s.broker,
+                            s.username,
+                            s.password,
+                            s.availabilityTopic
+                        )
+                    }
+                    .distinctUntilChanged()
+                    .collect { config: ConnectionConfig ->
+                        if (config.isEnabled) {
+                            Log.d(tag, "Connecting to MQTT broker reactively.")
+                            nativeConnect(config.brokerUrl, "", config.username, config.password, config.availabilityTopic, "offline")
+                        } else {
+                            Log.d(tag, "Disconnecting from MQTT broker reactively.")
+                            nativeDisconnect()
+                            stopSelf()
+                        }
+                    }
+            }
+
+            // Observe topic settings
+            launch {
+                settingsDataStore.settingsFlow
+                    .map { s: Settings ->
+                        TopicConfig(
+                            s.accelerometerTopic,
+                            s.gyroscopeTopic,
+                            s.gravityTopic,
+                            s.lightSensorTopic,
+                            s.temperatureSensorTopic
+                        )
+                    }
+                    .distinctUntilChanged()
+                    .collect { topics: TopicConfig ->
+                        Log.d(tag, "Updating topics reactively.")
+                        nativeUpdateTopics(
+                            topics.accelerometerTopic,
+                            topics.gyroscopeTopic,
+                            topics.gravityTopic,
+                            topics.lightSensorTopic,
+                            topics.temperatureSensorTopic
+                        )
+                    }
+            }
+
+            // Observe HA Discovery and individual sensor toggles for discovery refresh
+            // We combine settings with the connection status so discovery is sent as soon as we connect.
+            combine(
+                settingsDataStore.settingsFlow,
+                _mqttStatus
+            ) { settings: Settings, status: MqttState -> settings to status }
+                .collect { pair: Pair<Settings, MqttState> ->
+                    val currentSettings = pair.first
+                    val currentStatus = pair.second
+                    if (currentSettings.isMqttEnabled && currentStatus == MqttState.CONNECTED) {
+                        Log.d(tag, "Refreshing HA discovery reactively.")
+                        sendHaDiscovery(currentSettings)
+                    }
+                }
+        }
     }
 
     fun onMqttStatusUpdate(newStatus: String, reason: String) {
         Log.d(tag, "onMqttStatusUpdate: $newStatus")
-        status = when (newStatus) {
+        val newState = when (newStatus) {
             "CONNECTED" -> MqttState.CONNECTED
             "CONNECTING" -> MqttState.CONNECTING
             "DISCONNECTED" -> MqttState.DISCONNECTED
             else -> MqttState.ERROR
         }
+        _mqttStatus.value = newState
 
         val statusIntent = Intent(MQTT_STATUS_ACTION).apply {
-            putExtra("status", status.name)
+            putExtra("status", newState.name)
         }
         sendBroadcast(statusIntent)
 
-        if (status == MqttState.CONNECTED) {
-            val settings = runBlocking { settingsDataStore.settingsFlow.first() }
-            val availabilityTopic = settings.availabilityTopic
-            nativePublish(availabilityTopic, "online", true)
-            
-            // Sync individual sensor statuses
-            publishSensorStatus(availabilityTopic, "accel", settings.isAccelerometerEnabled)
-            publishSensorStatus(availabilityTopic, "gyro", settings.isGyroscopeEnabled)
-            publishSensorStatus(availabilityTopic, "gravity", settings.isGravityEnabled)
-            publishSensorStatus(availabilityTopic, "light", settings.isLightSensorEnabled)
-            publishSensorStatus(availabilityTopic, "temp", settings.isTemperatureSensorEnabled)
-
-            if (settings.isHaDiscoveryEnabled) {
-                sendHaDiscovery(settings)
+        if (newState == MqttState.CONNECTED) {
+            serviceScope.launch {
+                val settings = settingsDataStore.settingsFlow.first()
+                val availabilityTopic = settings.availabilityTopic
+                nativePublish(availabilityTopic, "online", true)
+                
+                // Sync individual sensor statuses
+                publishSensorStatus(availabilityTopic, "accel", settings.isAccelerometerEnabled)
+                publishSensorStatus(availabilityTopic, "gyro", settings.isGyroscopeEnabled)
+                publishSensorStatus(availabilityTopic, "gravity", settings.isGravityEnabled)
+                publishSensorStatus(availabilityTopic, "light", settings.isLightSensorEnabled)
+                publishSensorStatus(availabilityTopic, "temp", settings.isTemperatureSensorEnabled)
             }
         }
 
-        when (status) {
-            MqttState.ERROR -> {
-                val intent = Intent(MQTT_ERROR_ACTION).apply {
-                    putExtra("error", reason)
-                }
-                sendBroadcast(intent)
+        if (newState == MqttState.ERROR) {
+            val intent = Intent(MQTT_ERROR_ACTION).apply {
+                putExtra("error", reason)
             }
-            else -> {
-                // Other states do not require special handling here
-            }
+            sendBroadcast(intent)
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(tag, "onStartCommand received action: ${intent?.action}")
-        when (intent?.action) {
-            ACTION_CONNECT -> {
-                val brokerUrl = intent.getStringExtra("BROKER_URL") ?: ""
-                val username = intent.getStringExtra("USERNAME") ?: ""
-                val password = intent.getStringExtra("PASSWORD") ?: ""
-                val availabilityTopic = intent.getStringExtra("AVAILABILITY_TOPIC") ?: "opensensor/status"
-
-                Log.d(tag, "Connecting to MQTT broker.")
-                nativeConnect(brokerUrl, "", username, password, availabilityTopic, "offline")
-            }
-            ACTION_DISCONNECT -> {
-                nativeDisconnect()
-                stopSelf()
-            }
-            ACTION_REFRESH_DISCOVERY -> {
-                if (status == MqttState.CONNECTED) {
-                    val settingsDataStore = SettingsDataStore(this)
-                    val settings = runBlocking { settingsDataStore.settingsFlow.first() }
-                    sendHaDiscovery(settings)
-                }
-            }
-        }
+        val notification = createNotification()
+        startForeground(notificationId, notification)
         return START_STICKY
     }
 
@@ -315,7 +380,7 @@ class MqttService : Service() {
     }
 
     private fun publishSensorStatus(baseTopic: String, sensorKey: String, isEnabled: Boolean) {
-        if (status == MqttState.CONNECTED) {
+        if (_mqttStatus.value == MqttState.CONNECTED) {
             nativePublish("$baseTopic/$sensorKey", if (isEnabled) "online" else "offline", true)
         }
     }
@@ -344,6 +409,7 @@ class MqttService : Service() {
         unregisterReceiver(statusRequestReceiver)
         Log.d(tag, "MQTT Service destroyed.")
         nativeCleanup()
+        serviceScope.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -359,6 +425,7 @@ class MqttService : Service() {
     )
 
     private external fun nativeConnect(brokerUrl: String, clientId: String, username: String, password: String, willTopic: String, willPayload: String)
+    private external fun nativeUpdateTopics(accelerometerTopic: String, gyroscopeTopic: String, gravityTopic: String, lightSensorTopic: String, temperatureSensorTopic: String)
     private external fun nativeDisconnect()
     private external fun nativeCleanup()
     private external fun nativePublish(topic: String, payload: String, retain: Boolean)

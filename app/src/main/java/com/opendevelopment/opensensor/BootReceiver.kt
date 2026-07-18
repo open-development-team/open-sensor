@@ -15,7 +15,7 @@ class BootReceiver : BroadcastReceiver() {
 
                 if (settings.autoStart) {
                     val serviceManager = ServiceManager(context)
-                    serviceManager.startAllServices()
+                    serviceManager.ensureStarted()
                 }
             }
         }

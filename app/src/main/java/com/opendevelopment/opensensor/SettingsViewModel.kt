@@ -61,231 +61,56 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
         )
     )
 
-    private data class MqttSettings(
-        val isEnabled: Boolean,
-        val broker: String,
-        val username: String,
-        val password: String,
-        val availabilityTopic: String
-    )
-
-    private data class AccelerometerSettings(
-        val isEnabled: Boolean,
-        val multiplierX: String,
-        val multiplierY: String,
-        val multiplierZ: String,
-        val rounding: String,
-        val samplingPeriod: Int,
-        val mqttTopic: String
-    )
-
-    private data class GyroscopeSettings(
-        val isEnabled: Boolean,
-        val multiplierX: String,
-        val multiplierY: String,
-        val multiplierZ: String,
-        val rounding: String,
-        val samplingPeriod: Int,
-        val mqttTopic: String
-    )
-
-    private data class GravitySettings(
-        val isEnabled: Boolean,
-        val multiplierX: String,
-        val multiplierY: String,
-        val multiplierZ: String,
-        val rounding: String,
-        val samplingPeriod: Int,
-        val mqttTopic: String
-    )
-
-    private data class LightSensorSettings(
-        val isEnabled: Boolean,
-        val rounding: String,
-        val samplingPeriod: Int,
-        val mqttTopic: String
-    )
-
-    private data class TemperatureSensorSettings(
-        val isEnabled: Boolean,
-        val rounding: String,
-        val samplingPeriod: Int,
-        val mqttTopic: String
-    )
-
-    private data class HaDiscoverySettings(
-        val isEnabled: Boolean,
-        val prefix: String,
-        val deviceName: String,
-        val deviceId: String,
-        val availabilityTopic: String,
-        val isAccelerometerEnabled: Boolean,
-        val isGyroscopeEnabled: Boolean,
-        val isGravityEnabled: Boolean,
-        val isLightSensorEnabled: Boolean,
-        val isTemperatureSensorEnabled: Boolean
-    )
-
     init {
-        // Observe MQTT settings changes
+        // Services will observe SettingsDataStore directly once they are running.
+        // We need to ensure they are started (or "woken up") when their enabled flag is set to true.
+        
+        // MQTT
         viewModelScope.launch {
             settingsDataStore.settingsFlow
-                .map {
-                    MqttSettings(
-                        it.isMqttEnabled,
-                        it.broker,
-                        it.username,
-                        it.password,
-                        it.availabilityTopic
-                    )
-                }
+                .map { s: Settings -> s.isMqttEnabled }
                 .distinctUntilChanged()
-                .collect {
-                    if (it.isEnabled) {
-                        serviceManager.startMqtt()
-                    } else {
-                        serviceManager.stopMqtt()
-                    }
-                }
+                .collect { enabled: Boolean -> if (enabled) serviceManager.startMqtt() }
         }
 
-        // Observe accelerometer settings changes
+        // Accelerometer
         viewModelScope.launch {
             settingsDataStore.settingsFlow
-                .map {
-                    AccelerometerSettings(
-                        it.isAccelerometerEnabled,
-                        it.accelerometerMultiplierX,
-                        it.accelerometerMultiplierY,
-                        it.accelerometerMultiplierZ,
-                        it.accelerometerRounding,
-                        it.accelerometerSamplingPeriod,
-                        it.accelerometerTopic
-                    )
-                }
+                .map { s: Settings -> s.isAccelerometerEnabled }
                 .distinctUntilChanged()
-                .collect {
-                    if (it.isEnabled) {
-                        serviceManager.updateAccelerometerConfig()
-                    } else {
-                        serviceManager.stopAccelerometer()
-                    }
-                }
+                .collect { enabled: Boolean -> if (enabled) serviceManager.startAccelerometer() }
         }
 
-        // Observe gyroscope settings changes
+        // Gyroscope
         viewModelScope.launch {
             settingsDataStore.settingsFlow
-                .map {
-                    GyroscopeSettings(
-                        it.isGyroscopeEnabled,
-                        it.gyroscopeMultiplierX,
-                        it.gyroscopeMultiplierY,
-                        it.gyroscopeMultiplierZ,
-                        it.gyroscopeRounding,
-                        it.gyroscopeSamplingPeriod,
-                        it.gyroscopeTopic
-                    )
-                }
+                .map { s: Settings -> s.isGyroscopeEnabled }
                 .distinctUntilChanged()
-                .collect {
-                    if (it.isEnabled) {
-                        serviceManager.updateGyroscopeConfig()
-                    } else {
-                        serviceManager.stopGyroscope()
-                    }
-                }
+                .collect { enabled: Boolean -> if (enabled) serviceManager.startGyroscope() }
         }
 
-        // Observe gravity settings changes
+        // Gravity
         viewModelScope.launch {
             settingsDataStore.settingsFlow
-                .map {
-                    GravitySettings(
-                        it.isGravityEnabled,
-                        it.gravityMultiplierX,
-                        it.gravityMultiplierY,
-                        it.gravityMultiplierZ,
-                        it.gravityRounding,
-                        it.gravitySamplingPeriod,
-                        it.gravityTopic
-                    )
-                }
+                .map { s: Settings -> s.isGravityEnabled }
                 .distinctUntilChanged()
-                .collect {
-                    if (it.isEnabled) {
-                        serviceManager.updateGravityConfig()
-                    } else {
-                        serviceManager.stopGravity()
-                    }
-                }
+                .collect { enabled: Boolean -> if (enabled) serviceManager.startGravity() }
         }
 
-        // Observe light sensor settings changes
+        // Light
         viewModelScope.launch {
             settingsDataStore.settingsFlow
-                .map {
-                    LightSensorSettings(
-                        it.isLightSensorEnabled,
-                        it.lightSensorRounding,
-                        it.lightSensorSamplingPeriod,
-                        it.lightSensorTopic
-                    )
-                }
+                .map { s: Settings -> s.isLightSensorEnabled }
                 .distinctUntilChanged()
-                .collect {
-                    if (it.isEnabled) {
-                        serviceManager.updateLightSensorConfig()
-                    } else {
-                        serviceManager.stopLightSensor()
-                    }
-                }
+                .collect { enabled: Boolean -> if (enabled) serviceManager.startLightSensor() }
         }
 
-        // Observe temperature sensor settings changes
+        // Temperature
         viewModelScope.launch {
             settingsDataStore.settingsFlow
-                .map {
-                    TemperatureSensorSettings(
-                        it.isTemperatureSensorEnabled,
-                        it.temperatureSensorRounding,
-                        it.temperatureSensorSamplingPeriod,
-                        it.temperatureSensorTopic
-                    )
-                }
+                .map { s: Settings -> s.isTemperatureSensorEnabled }
                 .distinctUntilChanged()
-                .collect {
-                    if (it.isEnabled) {
-                        serviceManager.updateTemperatureSensorConfig()
-                    } else {
-                        serviceManager.stopTemperatureSensor()
-                    }
-                }
-        }
-
-        // Observe HA Discovery settings changes
-        viewModelScope.launch {
-            settingsDataStore.settingsFlow
-                .map {
-                    HaDiscoverySettings(
-                        it.isHaDiscoveryEnabled,
-                        it.haDiscoveryPrefix,
-                        it.haDeviceName,
-                        it.haDeviceId,
-                        it.availabilityTopic,
-                        it.isAccelerometerEnabled,
-                        it.isGyroscopeEnabled,
-                        it.isGravityEnabled,
-                        it.isLightSensorEnabled,
-                        it.isTemperatureSensorEnabled
-                    )
-                }
-                .distinctUntilChanged()
-                .collect {
-                    if (settings.value.isMqttEnabled) {
-                        serviceManager.refreshMqttDiscovery()
-                    }
-                }
+                .collect { enabled: Boolean -> if (enabled) serviceManager.startTemperatureSensor() }
         }
     }
 

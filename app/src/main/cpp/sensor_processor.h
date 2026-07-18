@@ -11,6 +11,7 @@ public:
     explicit SensorProcessor(MqttClientWrapper* mqttClientWrapper, std::string topic);
 
     void updateSettings(float multiplierX, float multiplierY, float multiplierZ, int rounding);
+    void setTopic(std::string topic) { topic_ = std::move(topic); }
     void processData(float x, float y, float z);
 
 private:

@@ -21,10 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class AccelerometerService : Service(), SensorEventListener {
@@ -40,6 +37,15 @@ class AccelerometerService : Service(), SensorEventListener {
     private var isStarted = false
     private lateinit var settingsDataStore: SettingsDataStore
 
+    private data class AccelerometerConfig(
+        val isEnabled: Boolean,
+        val multiplierX: Float,
+        val multiplierY: Float,
+        val multiplierZ: Float,
+        val rounding: Int,
+        val samplingPeriod: Int
+    )
+
     override fun onCreate() {
         super.onCreate()
         Log.d(tag, "Service created.")
@@ -50,38 +56,41 @@ class AccelerometerService : Service(), SensorEventListener {
         System.loadLibrary("opensensor_native")
 
         createNotificationChannel()
+
+        serviceScope.launch {
+            settingsDataStore.settingsFlow
+                .map { s: Settings ->
+                    AccelerometerConfig(
+                        s.isAccelerometerEnabled,
+                        s.accelerometerMultiplierX.toFloatOrNull() ?: 1.0f,
+                        s.accelerometerMultiplierY.toFloatOrNull() ?: 1.0f,
+                        s.accelerometerMultiplierZ.toFloatOrNull() ?: 1.0f,
+                        s.accelerometerRounding.toIntOrNull() ?: 2,
+                        s.accelerometerSamplingPeriod
+                    )
+                }
+                .distinctUntilChanged()
+                .collect { config: AccelerometerConfig ->
+                    if (!config.isEnabled) {
+                        stopSelf()
+                        return@collect
+                    }
+
+                    updateSettings(config.multiplierX, config.multiplierY, config.multiplierZ, config.rounding)
+                    start(config.samplingPeriod)
+                    _isAccelerometerEnabled.value = isStarted
+                    
+                    if (!isStarted) {
+                        settingsDataStore.updateAccelerometerEnabled(false)
+                        stopSelf()
+                    }
+                }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = createNotification()
         startForeground(notificationId, notification)
-
-        Log.d(tag, "onStartCommand received action: ${intent?.action}")
-        when (intent?.action) {
-            ACTION_START_ACCELEROMETER -> {
-                val multiplierX = intent.getFloatExtra("MULTIPLIER_X", 1.0f)
-                val multiplierY = intent.getFloatExtra("MULTIPLIER_Y", 1.0f)
-                val multiplierZ = intent.getFloatExtra("MULTIPLIER_Z", 1.0f)
-                val rounding = intent.getIntExtra("ROUNDING", 2)
-                val samplingPeriod = intent.getIntExtra("SAMPLING_PERIOD", SensorManager.SENSOR_DELAY_NORMAL)
-                updateSettings(multiplierX, multiplierY, multiplierZ, rounding)
-                start(samplingPeriod)
-                _isAccelerometerEnabled.value = isStarted
-                if (!isStarted) {
-                    serviceScope.launch {
-                        settingsDataStore.updateAccelerometerEnabled(false)
-                    }
-                    stopSelf()
-                }
-            }
-            ACTION_STOP_ACCELEROMETER -> {
-                stopSelf()
-            }
-            ACTION_STOP_SERVICE -> {
-                stopSelf()
-            }
-        }
-
         return START_STICKY
     }
 
