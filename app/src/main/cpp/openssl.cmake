@@ -20,7 +20,7 @@ ExternalProject_Add(
         OpenSSL
         SOURCE_DIR ${OPENSSL_SOURCE_DIR}
         GIT_REPOSITORY https://github.com/openssl/openssl.git
-        GIT_TAG openssl-3.6.0
+        GIT_TAG openssl-4.0.1
         GIT_SHALLOW TRUE
         USES_TERMINAL_DOWNLOAD TRUE
         UPDATE_DISCONNECTED 1

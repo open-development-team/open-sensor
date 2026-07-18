@@ -820,6 +820,30 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateTemperatureSensorSamplingPeriod(it); onDismiss() }
             )
+            "haDiscoveryPrefix" -> EditTextPreferenceDialog(
+                title = "HA Discovery Prefix",
+                initialValue = settings.haDiscoveryPrefix,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateHaDiscoveryPrefix(it); onDismiss() }
+            )
+            "haDeviceName" -> EditTextPreferenceDialog(
+                title = "HA Device Name",
+                initialValue = settings.haDeviceName,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateHaDeviceName(it); onDismiss() }
+            )
+            "haDeviceId" -> EditTextPreferenceDialog(
+                title = "HA Device ID",
+                initialValue = settings.haDeviceId,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateHaDeviceId(it); onDismiss() }
+            )
+            "availabilityTopic" -> EditTextPreferenceDialog(
+                title = "Availability Topic",
+                initialValue = settings.availabilityTopic,
+                onDismiss = onDismiss,
+                onSave = { settingsViewModel.updateAvailabilityTopic(it); onDismiss() }
+            )
         }
     }
 
@@ -828,6 +852,10 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
         EditTextPreference(title = "Broker URL", summary = settings.broker.ifBlank { "Not set" }) { launchDialog("broker") }
         EditTextPreference(title = "Username", summary = settings.username) { launchDialog("username") }
         EditTextPreference(title = "Password", summary = "********") { launchDialog("password") }
+        EditTextPreference(
+            title = "Availability Topic",
+            summary = "Topic for online/offline status: ${settings.availabilityTopic}"
+        ) { launchDialog("availabilityTopic") }
         EditTextPreference(title = "Accelerometer Topic", summary = settings.accelerometerTopic.ifBlank { "Publishing disabled" }) { launchDialog("accelerometerTopic") }
         EditTextPreference(title = "Gyroscope Topic", summary = settings.gyroscopeTopic.ifBlank { "Publishing disabled" }) { launchDialog("gyroscopeTopic") }
         EditTextPreference(title = "Gravity Topic", summary = settings.gravityTopic.ifBlank { "Publishing disabled" }) { launchDialog("gravityTopic") }
@@ -881,6 +909,18 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
             summary = "Start service and connect automatically",
             isChecked = settings.autoStart
         ) { settingsViewModel.updateAutoStart(it) }
+
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+        SettingsCategory(title = "Home Assistant Discovery")
+        SwitchPreference(
+            title = "Enable HA Discovery",
+            summary = "Automatically configure sensors in Home Assistant",
+            isChecked = settings.isHaDiscoveryEnabled
+        ) { settingsViewModel.updateHaDiscoveryEnabled(it) }
+        EditTextPreference(title = "Discovery Prefix", summary = settings.haDiscoveryPrefix) { launchDialog("haDiscoveryPrefix") }
+        EditTextPreference(title = "Device Name", summary = settings.haDeviceName) { launchDialog("haDeviceName") }
+        EditTextPreference(title = "Device ID", summary = settings.haDeviceId) { launchDialog("haDeviceId") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 

@@ -1,6 +1,7 @@
 *.iml
 .kotlin
 .gradle
+.artifacts
 /local.properties
 /.idea/caches
 /.idea/libraries

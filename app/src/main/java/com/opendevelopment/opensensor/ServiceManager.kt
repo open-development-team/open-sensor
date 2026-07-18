@@ -43,6 +43,7 @@ class ServiceManager(private val context: Context) {
             putExtra("BROKER_URL", settings.broker)
             putExtra("USERNAME", settings.username)
             putExtra("PASSWORD", settings.password)
+            putExtra("AVAILABILITY_TOPIC", settings.availabilityTopic)
         }
         context.startService(intent)
     }
@@ -50,6 +51,13 @@ class ServiceManager(private val context: Context) {
     fun stopMqtt() {
         val intent = Intent(context, MqttService::class.java).apply {
             action = MqttService.ACTION_DISCONNECT
+        }
+        context.startService(intent)
+    }
+
+    fun refreshMqttDiscovery() {
+        val intent = Intent(context, MqttService::class.java).apply {
+            action = MqttService.ACTION_REFRESH_DISCOVERY
         }
         context.startService(intent)
     }

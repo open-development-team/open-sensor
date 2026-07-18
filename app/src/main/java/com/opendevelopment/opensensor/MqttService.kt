@@ -17,6 +17,8 @@ import androidx.core.content.ContextCompat
 import com.opendevelopment.R
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 
 class MqttService : Service() {
@@ -33,6 +35,12 @@ class MqttService : Service() {
     private var status: MqttState = MqttState.DISCONNECTED
     private val notificationId = 3 // Unique ID for the notification
     private val channelId = "MqttServiceChannel"
+
+    private var lastDiscoveryPrefix: String? = null
+    private var lastDiscoveryDeviceId: String? = null
+    private var lastAvailabilityTopic: String? = null
+
+    private lateinit var settingsDataStore: SettingsDataStore
 
     private val statusRequestReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -57,7 +65,7 @@ class MqttService : Service() {
         createNotificationChannel()
         startForeground(notificationId, createNotification())
 
-        val settingsDataStore = SettingsDataStore(this)
+        settingsDataStore = SettingsDataStore(this)
         val settings = runBlocking { settingsDataStore.settingsFlow.first() }
         val logFile = File(filesDir, "mqtt_log.txt")
 
@@ -89,6 +97,23 @@ class MqttService : Service() {
         }
         sendBroadcast(statusIntent)
 
+        if (status == MqttState.CONNECTED) {
+            val settings = runBlocking { settingsDataStore.settingsFlow.first() }
+            val availabilityTopic = settings.availabilityTopic
+            nativePublish(availabilityTopic, "online", true)
+            
+            // Sync individual sensor statuses
+            publishSensorStatus(availabilityTopic, "accel", settings.isAccelerometerEnabled)
+            publishSensorStatus(availabilityTopic, "gyro", settings.isGyroscopeEnabled)
+            publishSensorStatus(availabilityTopic, "gravity", settings.isGravityEnabled)
+            publishSensorStatus(availabilityTopic, "light", settings.isLightSensorEnabled)
+            publishSensorStatus(availabilityTopic, "temp", settings.isTemperatureSensorEnabled)
+
+            if (settings.isHaDiscoveryEnabled) {
+                sendHaDiscovery(settings)
+            }
+        }
+
         when (status) {
             MqttState.ERROR -> {
                 val intent = Intent(MQTT_ERROR_ACTION).apply {
@@ -109,13 +134,21 @@ class MqttService : Service() {
                 val brokerUrl = intent.getStringExtra("BROKER_URL") ?: ""
                 val username = intent.getStringExtra("USERNAME") ?: ""
                 val password = intent.getStringExtra("PASSWORD") ?: ""
+                val availabilityTopic = intent.getStringExtra("AVAILABILITY_TOPIC") ?: "opensensor/status"
 
                 Log.d(tag, "Connecting to MQTT broker.")
-                nativeConnect(brokerUrl, "", username, password)
+                nativeConnect(brokerUrl, "", username, password, availabilityTopic, "offline")
             }
             ACTION_DISCONNECT -> {
                 nativeDisconnect()
                 stopSelf()
+            }
+            ACTION_REFRESH_DISCOVERY -> {
+                if (status == MqttState.CONNECTED) {
+                    val settingsDataStore = SettingsDataStore(this)
+                    val settings = runBlocking { settingsDataStore.settingsFlow.first() }
+                    sendHaDiscovery(settings)
+                }
             }
         }
         return START_STICKY
@@ -153,6 +186,154 @@ class MqttService : Service() {
             .build()
     }
 
+    private fun sendHaDiscovery(settings: Settings) {
+        val prefix = settings.haDiscoveryPrefix
+        val deviceName = settings.haDeviceName
+        val deviceId = settings.haDeviceId
+        val availabilityTopic = settings.availabilityTopic
+
+        // Clear old discovery if settings changed
+        if (lastDiscoveryPrefix != null && lastDiscoveryDeviceId != null && lastAvailabilityTopic != null) {
+            if (lastDiscoveryPrefix != prefix || lastDiscoveryDeviceId != deviceId || lastAvailabilityTopic != availabilityTopic) {
+                clearHaDiscovery(lastDiscoveryPrefix!!, lastDiscoveryDeviceId!!, lastAvailabilityTopic!!)
+            }
+        }
+
+        if (!settings.isHaDiscoveryEnabled) {
+            if (lastDiscoveryPrefix != null && lastDiscoveryDeviceId != null && lastAvailabilityTopic != null) {
+                clearHaDiscovery(lastDiscoveryPrefix!!, lastDiscoveryDeviceId!!, lastAvailabilityTopic!!)
+                lastDiscoveryPrefix = null
+                lastDiscoveryDeviceId = null
+                lastAvailabilityTopic = null
+            }
+            return
+        }
+
+        lastDiscoveryPrefix = prefix
+        lastDiscoveryDeviceId = deviceId
+        lastAvailabilityTopic = availabilityTopic
+
+        val device = JSONObject().apply {
+            put("identifiers", JSONArray().put(deviceId))
+            put("name", deviceName)
+            put("model", Build.MODEL)
+            put("manufacturer", Build.MANUFACTURER)
+            put("sw_version", Build.VERSION.RELEASE)
+        }
+
+        val globalAvailability = JSONObject().apply {
+            put("topic", availabilityTopic)
+        }
+
+        // Helper to create sensor availability array
+        fun getAvailability(sensorKey: String): JSONArray {
+            return JSONArray().apply {
+                put(globalAvailability)
+                put(JSONObject().apply {
+                    put("topic", "$availabilityTopic/$sensorKey")
+                })
+            }
+        }
+
+        // Accelerometer - Always publish config, but sync status
+        publishSensorStatus(availabilityTopic, "accel", settings.isAccelerometerEnabled)
+        listOf("x", "y", "z").forEach { axis ->
+            val config = JSONObject().apply {
+                put("name", "$deviceName Accelerometer $axis")
+                put("state_topic", settings.accelerometerTopic)
+                put("unit_of_measurement", "m/s²")
+                put("value_template", "{{ value_json.$axis }}")
+                put("unique_id", "${deviceId}_accel_$axis")
+                put("device", device)
+                put("availability", getAvailability("accel"))
+            }
+            nativePublish("$prefix/sensor/$deviceId/accel_$axis/config", config.toString(), true)
+        }
+
+        // Gyroscope
+        publishSensorStatus(availabilityTopic, "gyro", settings.isGyroscopeEnabled)
+        listOf("x", "y", "z").forEach { axis ->
+            val config = JSONObject().apply {
+                put("name", "$deviceName Gyroscope $axis")
+                put("state_topic", settings.gyroscopeTopic)
+                put("unit_of_measurement", "rad/s")
+                put("value_template", "{{ value_json.$axis }}")
+                put("unique_id", "${deviceId}_gyro_$axis")
+                put("device", device)
+                put("availability", getAvailability("gyro"))
+            }
+            nativePublish("$prefix/sensor/$deviceId/gyro_$axis/config", config.toString(), true)
+        }
+
+        // Gravity
+        publishSensorStatus(availabilityTopic, "gravity", settings.isGravityEnabled)
+        listOf("x", "y", "z").forEach { axis ->
+            val config = JSONObject().apply {
+                put("name", "$deviceName Gravity $axis")
+                put("state_topic", settings.gravityTopic)
+                put("unit_of_measurement", "m/s²")
+                put("value_template", "{{ value_json.$axis }}")
+                put("unique_id", "${deviceId}_gravity_$axis")
+                put("device", device)
+                put("availability", getAvailability("gravity"))
+            }
+            nativePublish("$prefix/sensor/$deviceId/gravity_$axis/config", config.toString(), true)
+        }
+
+        // Light
+        publishSensorStatus(availabilityTopic, "light", settings.isLightSensorEnabled)
+        val lightConfig = JSONObject().apply {
+            put("name", "$deviceName Light")
+            put("state_topic", settings.lightSensorTopic)
+            put("unit_of_measurement", "lx")
+            put("value_template", "{{ value_json.value }}")
+            put("unique_id", "${deviceId}_light")
+            put("device", device)
+            put("availability", getAvailability("light"))
+            put("device_class", "illuminance")
+        }
+        nativePublish("$prefix/sensor/$deviceId/light/config", lightConfig.toString(), true)
+
+        // Temperature
+        publishSensorStatus(availabilityTopic, "temp", settings.isTemperatureSensorEnabled)
+        val tempConfig = JSONObject().apply {
+            put("name", "$deviceName Ambient Temperature")
+            put("state_topic", settings.temperatureSensorTopic)
+            put("unit_of_measurement", "°C")
+            put("value_template", "{{ value_json.value }}")
+            put("unique_id", "${deviceId}_temp")
+            put("device", device)
+            put("availability", getAvailability("temp"))
+            put("device_class", "temperature")
+        }
+        nativePublish("$prefix/sensor/$deviceId/temp/config", tempConfig.toString(), true)
+    }
+
+    private fun publishSensorStatus(baseTopic: String, sensorKey: String, isEnabled: Boolean) {
+        if (status == MqttState.CONNECTED) {
+            nativePublish("$baseTopic/$sensorKey", if (isEnabled) "online" else "offline", true)
+        }
+    }
+
+    private fun clearHaDiscovery(prefix: String, deviceId: String, availabilityTopic: String) {
+        Log.d(tag, "Clearing old HA discovery for device: $deviceId with prefix: $prefix and availability topic: $availabilityTopic")
+        // Also publish offline status to the old topics
+        nativePublish(availabilityTopic, "offline", true)
+        listOf("accel", "gyro", "gravity", "light", "temp").forEach {
+            nativePublish("$availabilityTopic/$it", "offline", true)
+        }
+
+        // We need to unpublish all possible sensors for this device ID
+        val sensors = mutableListOf<String>()
+        listOf("accel_x", "accel_y", "accel_z", "gyro_x", "gyro_y", "gyro_z", "gravity_x", "gravity_y", "gravity_z", "light", "temp").forEach {
+            sensors.add(it)
+        }
+
+        sensors.forEach { sensor ->
+            nativePublish("$prefix/sensor/$deviceId/$sensor/config", "", true)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(statusRequestReceiver)
@@ -172,9 +353,10 @@ class MqttService : Service() {
         temperatureSensorTopic: String
     )
 
-    private external fun nativeConnect(brokerUrl: String, clientId: String, username: String, password: String)
+    private external fun nativeConnect(brokerUrl: String, clientId: String, username: String, password: String, willTopic: String, willPayload: String)
     private external fun nativeDisconnect()
     private external fun nativeCleanup()
+    private external fun nativePublish(topic: String, payload: String, retain: Boolean)
 
 
     companion object {
@@ -185,5 +367,6 @@ class MqttService : Service() {
         const val ACTION_CONNECT = "com.opendevelopment.opensensor.MQTT_CONNECT"
         const val ACTION_DISCONNECT = "com.opendevelopment.opensensor.MQTT_DISCONNECT"
         const val ACTION_REQUEST_STATUS = "com.opendevelopment.opensensor.MQTT_REQUEST_STATUS"
+        const val ACTION_REFRESH_DISCOVERY = "com.opendevelopment.opensensor.MQTT_REFRESH_DISCOVERY"
     }
 }

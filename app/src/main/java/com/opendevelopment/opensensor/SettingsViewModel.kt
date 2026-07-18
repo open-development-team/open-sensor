@@ -52,7 +52,12 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
             lightSensorSamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL,
             temperatureSensorTopic = "opensensor/sensor/temperature",
             temperatureSensorRounding = "2",
-            temperatureSensorSamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL
+            temperatureSensorSamplingPeriod = SensorManager.SENSOR_DELAY_NORMAL,
+            isHaDiscoveryEnabled = false,
+            haDiscoveryPrefix = "homeassistant",
+            haDeviceName = "OpenSensor",
+            haDeviceId = "opensensor_device",
+            availabilityTopic = "opensensor/status"
         )
     )
 
@@ -60,7 +65,8 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
         val isEnabled: Boolean,
         val broker: String,
         val username: String,
-        val password: String
+        val password: String,
+        val availabilityTopic: String
     )
 
     private data class AccelerometerSettings(
@@ -107,6 +113,19 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
         val mqttTopic: String
     )
 
+    private data class HaDiscoverySettings(
+        val isEnabled: Boolean,
+        val prefix: String,
+        val deviceName: String,
+        val deviceId: String,
+        val availabilityTopic: String,
+        val isAccelerometerEnabled: Boolean,
+        val isGyroscopeEnabled: Boolean,
+        val isGravityEnabled: Boolean,
+        val isLightSensorEnabled: Boolean,
+        val isTemperatureSensorEnabled: Boolean
+    )
+
     init {
         // Observe MQTT settings changes
         viewModelScope.launch {
@@ -116,7 +135,8 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
                         it.isMqttEnabled,
                         it.broker,
                         it.username,
-                        it.password
+                        it.password,
+                        it.availabilityTopic
                     )
                 }
                 .distinctUntilChanged()
@@ -242,6 +262,31 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
                     }
                 }
         }
+
+        // Observe HA Discovery settings changes
+        viewModelScope.launch {
+            settingsDataStore.settingsFlow
+                .map {
+                    HaDiscoverySettings(
+                        it.isHaDiscoveryEnabled,
+                        it.haDiscoveryPrefix,
+                        it.haDeviceName,
+                        it.haDeviceId,
+                        it.availabilityTopic,
+                        it.isAccelerometerEnabled,
+                        it.isGyroscopeEnabled,
+                        it.isGravityEnabled,
+                        it.isLightSensorEnabled,
+                        it.isTemperatureSensorEnabled
+                    )
+                }
+                .distinctUntilChanged()
+                .collect {
+                    if (settings.value.isMqttEnabled) {
+                        serviceManager.refreshMqttDiscovery()
+                    }
+                }
+        }
     }
 
     fun updateBroker(broker: String) = viewModelScope.launch { settingsDataStore.updateBroker(broker) }
@@ -278,6 +323,12 @@ class SettingsViewModel(private val settingsDataStore: SettingsDataStore) : View
     fun updateTemperatureSensorTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorTopic(topic) }
     fun updateTemperatureSensorRounding(rounding: String) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorRounding(rounding) }
     fun updateTemperatureSensorSamplingPeriod(samplingPeriod: Int) = viewModelScope.launch { settingsDataStore.updateTemperatureSensorSamplingPeriod(samplingPeriod) }
+
+    fun updateHaDiscoveryEnabled(enabled: Boolean) = viewModelScope.launch { settingsDataStore.updateHaDiscoveryEnabled(enabled) }
+    fun updateHaDiscoveryPrefix(prefix: String) = viewModelScope.launch { settingsDataStore.updateHaDiscoveryPrefix(prefix) }
+    fun updateHaDeviceName(name: String) = viewModelScope.launch { settingsDataStore.updateHaDeviceName(name) }
+    fun updateHaDeviceId(id: String) = viewModelScope.launch { settingsDataStore.updateHaDeviceId(id) }
+    fun updateAvailabilityTopic(topic: String) = viewModelScope.launch { settingsDataStore.updateAvailabilityTopic(topic) }
 }
 
 class SettingsViewModelFactory(private val settingsDataStore: SettingsDataStore) : ViewModelProvider.Factory {

@@ -48,7 +48,12 @@ data class Settings(
     val lightSensorSamplingPeriod: Int,
     val temperatureSensorTopic: String,
     val temperatureSensorRounding: String,
-    val temperatureSensorSamplingPeriod: Int
+    val temperatureSensorSamplingPeriod: Int,
+    val isHaDiscoveryEnabled: Boolean,
+    val haDiscoveryPrefix: String,
+    val haDeviceName: String,
+    val haDeviceId: String,
+    val availabilityTopic: String
 )
 
 class SettingsDataStore(val context: Context) {
@@ -93,6 +98,12 @@ class SettingsDataStore(val context: Context) {
         val TEMPERATURE_SENSOR_TOPIC = stringPreferencesKey("temperature_sensor_topic")
         val TEMPERATURE_SENSOR_ROUNDING = stringPreferencesKey("temperature_sensor_rounding")
         val TEMPERATURE_SENSOR_SAMPLING_PERIOD = intPreferencesKey("temperature_sensor_sampling_period")
+
+        val HA_DISCOVERY_ENABLED = booleanPreferencesKey("ha_discovery_enabled")
+        val HA_DISCOVERY_PREFIX = stringPreferencesKey("ha_discovery_prefix")
+        val HA_DEVICE_NAME = stringPreferencesKey("ha_device_name")
+        val HA_DEVICE_ID = stringPreferencesKey("ha_device_id")
+        val AVAILABILITY_TOPIC = stringPreferencesKey("availability_topic")
     }
 
     val settingsFlow: Flow<Settings> = context.dataStore.data
@@ -136,7 +147,13 @@ class SettingsDataStore(val context: Context) {
 
                 temperatureSensorTopic = preferences[PreferenceKeys.TEMPERATURE_SENSOR_TOPIC] ?: "opensensor/sensor/temperature",
                 temperatureSensorRounding = preferences[PreferenceKeys.TEMPERATURE_SENSOR_ROUNDING] ?: "2",
-                temperatureSensorSamplingPeriod = preferences[PreferenceKeys.TEMPERATURE_SENSOR_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL
+                temperatureSensorSamplingPeriod = preferences[PreferenceKeys.TEMPERATURE_SENSOR_SAMPLING_PERIOD] ?: SensorManager.SENSOR_DELAY_NORMAL,
+
+                isHaDiscoveryEnabled = preferences[PreferenceKeys.HA_DISCOVERY_ENABLED] ?: false,
+                haDiscoveryPrefix = preferences[PreferenceKeys.HA_DISCOVERY_PREFIX] ?: "homeassistant",
+                haDeviceName = preferences[PreferenceKeys.HA_DEVICE_NAME] ?: "OpenSensor",
+                haDeviceId = preferences[PreferenceKeys.HA_DEVICE_ID] ?: "opensensor_device",
+                availabilityTopic = preferences[PreferenceKeys.AVAILABILITY_TOPIC] ?: "opensensor/status"
             )
         }
 
@@ -274,5 +291,25 @@ class SettingsDataStore(val context: Context) {
 
     suspend fun updateTemperatureSensorSamplingPeriod(samplingPeriod: Int) {
         context.dataStore.edit { it[PreferenceKeys.TEMPERATURE_SENSOR_SAMPLING_PERIOD] = samplingPeriod }
+    }
+
+    suspend fun updateHaDiscoveryEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[PreferenceKeys.HA_DISCOVERY_ENABLED] = enabled }
+    }
+
+    suspend fun updateHaDiscoveryPrefix(prefix: String) {
+        context.dataStore.edit { it[PreferenceKeys.HA_DISCOVERY_PREFIX] = prefix }
+    }
+
+    suspend fun updateHaDeviceName(name: String) {
+        context.dataStore.edit { it[PreferenceKeys.HA_DEVICE_NAME] = name }
+    }
+
+    suspend fun updateHaDeviceId(id: String) {
+        context.dataStore.edit { it[PreferenceKeys.HA_DEVICE_ID] = id }
+    }
+
+    suspend fun updateAvailabilityTopic(topic: String) {
+        context.dataStore.edit { it[PreferenceKeys.AVAILABILITY_TOPIC] = topic }
     }
 }

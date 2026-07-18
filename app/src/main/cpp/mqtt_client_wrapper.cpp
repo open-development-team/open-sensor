@@ -32,7 +32,7 @@ void assign_tls_sni(
 
 }
 
-MqttClientWrapper::MqttClientWrapper(std::string log_file_path) : logger_{std::move(log_file_path)} {
+MqttClientWrapper::MqttClientWrapper(std::string log_file_path) : logger_{*this, std::move(log_file_path)} {
     ioc_thread_ = std::thread([this]() {
         LOGD("Starting io_context thread.");
         auto work_guard = boost::asio::make_work_guard(ioc_);
@@ -49,9 +49,12 @@ MqttClientWrapper::~MqttClientWrapper() {
     }
 }
 
-void MqttClientWrapper::connect(const std::string& broker_url, const std::string& client_id, const std::string& username, const std::string& password) {
-    boost::asio::dispatch(ioc_, [this, broker_url, client_id, username, password] {
+void MqttClientWrapper::connect(const std::string& broker_url, const std::string& client_id, const std::string& username, const std::string& password, const std::string& will_topic, const std::string& will_payload) {
+    boost::asio::dispatch(ioc_, [this, broker_url, client_id, username, password, will_topic, will_payload] {
         logger_.log("Trying to connect...");
+
+        will_topic_ = will_topic;
+        will_payload_ = will_payload;
 
         boost::urls::url_view u(broker_url);
 
@@ -61,6 +64,10 @@ void MqttClientWrapper::connect(const std::string& broker_url, const std::string
                         ioc_,
                         boost::asio::ssl::context(boost::asio::ssl::context::tls_client),
                         logger_);
+
+                if (!will_topic.empty()) {
+                    client.will(boost::mqtt5::will(will_topic, will_payload, boost::mqtt5::qos_e::at_most_once, boost::mqtt5::retain_e::yes));
+                }
 
                 client.brokers(u.host(), u.port_number())
                         .credentials(client_id, username, password)
@@ -72,6 +79,10 @@ void MqttClientWrapper::connect(const std::string& broker_url, const std::string
                         ioc_,
                         std::monostate{},
                         logger_);
+
+                if (!will_topic.empty()) {
+                    client.will(boost::mqtt5::will(will_topic, will_payload, boost::mqtt5::qos_e::at_most_once, boost::mqtt5::retain_e::yes));
+                }
 
                 client.brokers(u.host(), u.port_number())
                         .credentials(client_id, username, password)
@@ -91,10 +102,20 @@ void MqttClientWrapper::disconnect() {
     boost::asio::dispatch(ioc_, [this]() {
         if (!std::holds_alternative<std::monostate>(client_)) {
             try {
-                logger_.log("Disconnecting from broker...");
                 std::visit([this](auto&& cli) {
                     using T = std::decay_t<decltype(cli)>;
                     if constexpr (!std::is_same_v<T, std::monostate>) {
+                        if (!will_topic_.empty()) {
+                            logger_.log("Publishing offline status before disconnect...");
+                            cli.template async_publish<boost::mqtt5::qos_e::at_most_once>(
+                                    will_topic_, will_payload_,
+                                    boost::mqtt5::retain_e::yes, boost::mqtt5::publish_props {},
+                                    [this](boost::mqtt5::error_code ec) {
+                                        if (ec) logger_.log("Graceful offline publish failed: " + ec.message());
+                                    });
+                        }
+
+                        logger_.log("Disconnecting from broker...");
                         cli.async_disconnect([this](boost::mqtt5::error_code ec) {
                             if (!ec) logger_.log("Disconnected from broker.");
                             else logger_.log("Disconnecting from broker failed: " + ec.message());
@@ -108,8 +129,8 @@ void MqttClientWrapper::disconnect() {
     });
 }
 
-bool MqttClientWrapper::publish(const std::string& topic, const std::string& payload) {
-    boost::asio::dispatch(ioc_, [this, topic, payload] {
+bool MqttClientWrapper::publish(const std::string& topic, const std::string& payload, bool retain) {
+    boost::asio::dispatch(ioc_, [this, topic, payload, retain] {
         if (!std::holds_alternative<std::monostate>(client_)) {
             try {
                 std::visit([&](auto&& cli) {
@@ -118,7 +139,8 @@ bool MqttClientWrapper::publish(const std::string& topic, const std::string& pay
                         cli.template async_publish<boost::mqtt5::qos_e::at_most_once>(
                                 topic,
                                 payload,
-                                boost::mqtt5::retain_e::yes, boost::mqtt5::publish_props {},
+                                retain ? boost::mqtt5::retain_e::yes : boost::mqtt5::retain_e::no,
+                                boost::mqtt5::publish_props {},
                                 [this](boost::mqtt5::error_code ec) {
                                     if (ec) logger_.log(ec.message());
                                 });

@@ -16,25 +16,32 @@
 #include <chrono>
 #include <ctime>
 #include <iterator>
+#include <vector>
 
 class MqttClientWrapper {
 public:
+    using status_callback_t = std::function<void(const std::string&, const std::string&)>;
+
     explicit MqttClientWrapper(std::string log_file_path);
     ~MqttClientWrapper();
 
-    void connect(const std::string& broker_url, const std::string& client_id, const std::string& username, const std::string& password);
+    void set_status_callback(status_callback_t cb) { status_callback_ = std::move(cb); }
+
+    void connect(const std::string& broker_url, const std::string& client_id, const std::string& username, const std::string& password, const std::string& will_topic = "", const std::string& will_payload = "");
     void disconnect();
-    bool publish(const std::string& topic, const std::string& payload);
+    bool publish(const std::string& topic, const std::string& payload, bool retain = true);
 
 private:
     struct custom_logger {
+        MqttClientWrapper& wrapper_;
         std::string log_file_path_;
         // Using size-based limit to avoid reading the file for line counts.
         // Limit to 40KB, and when trimming, reduce to 20KB.
         const size_t MAX_LOG_SIZE = 40000;
         const size_t TRIM_TO_SIZE = 20000;
 
-        explicit custom_logger(std::string log_file_path) : log_file_path_(std::move(log_file_path)) {
+        explicit custom_logger(MqttClientWrapper& wrapper, std::string log_file_path)
+            : wrapper_(wrapper), log_file_path_(std::move(log_file_path)) {
         }
 
         void log(const std::string& message) const {
@@ -100,14 +107,23 @@ private:
             std::string msg = "connack: " + std::string(rc.message());
             msg += ", session_present: " + std::to_string(session_present);
             log(msg);
+            if (wrapper_.status_callback_) {
+                wrapper_.status_callback_(rc ? "ERROR" : "CONNECTED", std::string(rc.message()));
+            }
         }
 
         void at_disconnect(boost::mqtt5::reason_code rc, const boost::mqtt5::disconnect_props& props) const {
             log("disconnect: " + std::string(rc.message()));
+            if (wrapper_.status_callback_) {
+                wrapper_.status_callback_("DISCONNECTED", std::string(rc.message()));
+            }
         }
 
         void at_transport_error(boost::system::error_code ec) {
             log("transport layer error: " + ec.message());
+            if (wrapper_.status_callback_) {
+                wrapper_.status_callback_("DISCONNECTED", ec.message());
+            }
         }
     };
 
@@ -126,6 +142,10 @@ private:
     boost::asio::io_context ioc_;
     std::variant<std::monostate, mqtt_client_t, mqtts_client_t> client_;
     std::thread ioc_thread_;
+    status_callback_t status_callback_;
+
+    std::string will_topic_;
+    std::string will_payload_;
 };
 
 #endif //HAANDROIDACCELEROMETER_MQTT_CLIENT_WRAPPER_H
