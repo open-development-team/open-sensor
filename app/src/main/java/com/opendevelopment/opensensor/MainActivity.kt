@@ -44,6 +44,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -1073,17 +1074,10 @@ fun AppVersionPreference() {
     val context = LocalContext.current
     val versionName = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "Unknown" }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(text = "App Version", style = MaterialTheme.typography.titleMedium)
-            Text(text = versionName, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-        }
-    }
+    ListItem(
+        headlineContent = { Text(text = "App Version") },
+        supportingContent = { Text(text = versionName) }
+    )
 }
 
 @Composable
@@ -1142,21 +1136,18 @@ fun LineGraph(data: List<Triple<Float, Float, Float>>, modifier: Modifier) {
 
 @Composable
 fun EditTextPreference(title: String, summary: String, description: String? = null, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            if (description != null) {
-                Text(text = description, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+    ListItem(
+        headlineContent = { Text(text = title) },
+        supportingContent = {
+            Column {
+                if (description != null) {
+                    Text(text = description, style = MaterialTheme.typography.bodySmall)
+                }
+                Text(text = "Value: $summary", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
-            Text(text = "Value: $summary", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-        }
-    }
+        },
+        modifier = Modifier.clickable(onClick = onClick)
+    )
 }
 
 @Composable
@@ -1166,21 +1157,18 @@ fun ListPreference(
     description: String? = null,
     onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            if (description != null) {
-                Text(text = description, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+    ListItem(
+        headlineContent = { Text(text = title) },
+        supportingContent = {
+            Column {
+                if (description != null) {
+                    Text(text = description, style = MaterialTheme.typography.bodySmall)
+                }
+                Text(text = "Value: $summary", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
-            Text(text = "Value: $summary", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-        }
-    }
+        },
+        modifier = Modifier.clickable(onClick = onClick)
+    )
 }
 
 @Composable
@@ -1310,7 +1298,7 @@ fun SettingsCategory(title: String) {
         text = title,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(16.dp)
+        modifier = Modifier.padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 8.dp)
     )
 }
 
@@ -1321,17 +1309,10 @@ fun SwitchPreference(
     isChecked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(text = summary, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-        }
-        Switch(checked = isChecked, onCheckedChange = onCheckedChange)
-    }
+    ListItem(
+        headlineContent = { Text(text = title) },
+        supportingContent = { Text(text = summary, style = MaterialTheme.typography.bodySmall) },
+        trailingContent = { Switch(checked = isChecked, onCheckedChange = onCheckedChange) },
+        modifier = Modifier.clickable { onCheckedChange(!isChecked) }
+    )
 }
