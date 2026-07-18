@@ -682,21 +682,21 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
                 initialValue = settings.accelerometerMultiplierX,
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateAccelerometerMultiplierX(it); onDismiss() },
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Decimal
             )
             "accelerometerMultiplierY" -> EditTextPreferenceDialog(
                 title = "Y Multiplier",
                 initialValue = settings.accelerometerMultiplierY,
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateAccelerometerMultiplierY(it); onDismiss() },
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Decimal
             )
             "accelerometerMultiplierZ" -> EditTextPreferenceDialog(
                 title = "Z Multiplier",
                 initialValue = settings.accelerometerMultiplierZ,
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateAccelerometerMultiplierZ(it); onDismiss() },
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Decimal
             )
             "accelerometerRounding" -> EditTextPreferenceDialog(
                 title = "Rounding (Decimals)",
@@ -717,21 +717,21 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
                 initialValue = settings.gyroscopeMultiplierX,
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateGyroscopeMultiplierX(it); onDismiss() },
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Decimal
             )
             "gyroscopeMultiplierY" -> EditTextPreferenceDialog(
                 title = "Gyroscope Y Multiplier",
                 initialValue = settings.gyroscopeMultiplierY,
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateGyroscopeMultiplierY(it); onDismiss() },
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Decimal
             )
             "gyroscopeMultiplierZ" -> EditTextPreferenceDialog(
                 title = "Gyroscope Z Multiplier",
                 initialValue = settings.gyroscopeMultiplierZ,
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateGyroscopeMultiplierZ(it); onDismiss() },
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Decimal
             )
             "gyroscopeRounding" -> EditTextPreferenceDialog(
                 title = "Gyroscope Rounding (Decimals)",
@@ -752,21 +752,21 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
                 initialValue = settings.gravityMultiplierX,
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateGravityMultiplierX(it); onDismiss() },
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Decimal
             )
             "gravityMultiplierY" -> EditTextPreferenceDialog(
                 title = "Gravity Y Multiplier",
                 initialValue = settings.gravityMultiplierY,
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateGravityMultiplierY(it); onDismiss() },
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Decimal
             )
             "gravityMultiplierZ" -> EditTextPreferenceDialog(
                 title = "Gravity Z Multiplier",
                 initialValue = settings.gravityMultiplierZ,
                 onDismiss = onDismiss,
                 onSave = { settingsViewModel.updateGravityMultiplierZ(it); onDismiss() },
-                keyboardType = KeyboardType.Number
+                keyboardType = KeyboardType.Decimal
             )
             "gravityRounding" -> EditTextPreferenceDialog(
                 title = "Gravity Rounding (Decimals)",
@@ -867,57 +867,166 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
 
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
         SettingsCategory(title = "MQTT Broker")
-        EditTextPreference(title = "Broker URL", summary = settings.broker.ifBlank { "Not set" }) { launchDialog("broker") }
-        EditTextPreference(title = "Username", summary = settings.username) { launchDialog("username") }
-        EditTextPreference(title = "Password", summary = "********") { launchDialog("password") }
+        EditTextPreference(
+            title = "Broker URL",
+            description = "MQTT broker address (e.g. tcp://192.168.1.10:1883). tls:// is supported (server cert is not verified)",
+            summary = settings.broker.ifBlank { "Not set" }
+        ) { launchDialog("broker") }
+        EditTextPreference(
+            title = "Username",
+            description = "Optional username for authentication",
+            summary = settings.username
+        ) { launchDialog("username") }
+        EditTextPreference(
+            title = "Password",
+            description = "Optional password for authentication",
+            summary = "********"
+        ) { launchDialog("password") }
         EditTextPreference(
             title = "Availability Topic",
-            summary = "Topic for online/offline status: ${settings.availabilityTopic}"
+            description = "Topic used to publish online/offline status, also used as a prefix for individual sensor statuses",
+            summary = settings.availabilityTopic
         ) { launchDialog("availabilityTopic") }
-        EditTextPreference(title = "Accelerometer Topic", summary = settings.accelerometerTopic.ifBlank { "Publishing disabled" }) { launchDialog("accelerometerTopic") }
-        EditTextPreference(title = "Gyroscope Topic", summary = settings.gyroscopeTopic.ifBlank { "Publishing disabled" }) { launchDialog("gyroscopeTopic") }
-        EditTextPreference(title = "Gravity Topic", summary = settings.gravityTopic.ifBlank { "Publishing disabled" }) { launchDialog("gravityTopic") }
-        EditTextPreference(title = "Light Sensor Topic", summary = settings.lightSensorTopic.ifBlank { "Publishing disabled" }) { launchDialog("lightSensorTopic") }
-        EditTextPreference(title = "Temperature Sensor Topic", summary = settings.temperatureSensorTopic.ifBlank { "Publishing disabled" }) { launchDialog("temperatureSensorTopic") }
+        EditTextPreference(
+            title = "Accelerometer Topic",
+            description = "Topic for accelerometer sensor data",
+            summary = settings.accelerometerTopic.ifBlank { "Publishing disabled" }
+        ) { launchDialog("accelerometerTopic") }
+        EditTextPreference(
+            title = "Gyroscope Topic",
+            description = "Topic for gyroscope sensor data",
+            summary = settings.gyroscopeTopic.ifBlank { "Publishing disabled" }
+        ) { launchDialog("gyroscopeTopic") }
+        EditTextPreference(
+            title = "Gravity Topic",
+            description = "Topic for gravity sensor data",
+            summary = settings.gravityTopic.ifBlank { "Publishing disabled" }
+        ) { launchDialog("gravityTopic") }
+        EditTextPreference(
+            title = "Light Sensor Topic",
+            description = "Topic for ambient light sensor data",
+            summary = settings.lightSensorTopic.ifBlank { "Publishing disabled" }
+        ) { launchDialog("lightSensorTopic") }
+        EditTextPreference(
+            title = "Temperature Sensor Topic",
+            description = "Topic for ambient temperature sensor data",
+            summary = settings.temperatureSensorTopic.ifBlank { "Publishing disabled" }
+        ) { launchDialog("temperatureSensorTopic") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         SettingsCategory(title = "Accelerometer Processing")
-        EditTextPreference(title = "X Multiplier", summary = settings.accelerometerMultiplierX) { launchDialog("accelerometerMultiplierX") }
-        EditTextPreference(title = "Y Multiplier", summary = settings.accelerometerMultiplierY) { launchDialog("accelerometerMultiplierY") }
-        EditTextPreference(title = "Z Multiplier", summary = settings.accelerometerMultiplierZ) { launchDialog("accelerometerMultiplierZ") }
-        EditTextPreference(title = "Rounding (Decimals)", summary = settings.accelerometerRounding) { launchDialog("accelerometerRounding") }
-        ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.accelerometerSamplingPeriod] ?: "Normal") { launchDialog("accelerometerSamplingPeriod") }
+        EditTextPreference(
+            title = "X Multiplier",
+            description = "Factor applied to the X axis value",
+            summary = settings.accelerometerMultiplierX
+        ) { launchDialog("accelerometerMultiplierX") }
+        EditTextPreference(
+            title = "Y Multiplier",
+            description = "Factor applied to the Y axis value",
+            summary = settings.accelerometerMultiplierY
+        ) { launchDialog("accelerometerMultiplierY") }
+        EditTextPreference(
+            title = "Z Multiplier",
+            description = "Factor applied to the Z axis value",
+            summary = settings.accelerometerMultiplierZ
+        ) { launchDialog("accelerometerMultiplierZ") }
+        EditTextPreference(
+            title = "Rounding (Decimals)",
+            description = "Number of decimal places for published values",
+            summary = settings.accelerometerRounding
+        ) { launchDialog("accelerometerRounding") }
+        ListPreference(
+            title = "Sampling Period",
+            description = "How often the sensor is polled",
+            summary = samplingPeriodOptions[settings.accelerometerSamplingPeriod] ?: "Normal"
+        ) { launchDialog("accelerometerSamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         SettingsCategory(title = "Gyroscope Processing")
-        EditTextPreference(title = "X Multiplier", summary = settings.gyroscopeMultiplierX) { launchDialog("gyroscopeMultiplierX") }
-        EditTextPreference(title = "Y Multiplier", summary = settings.gyroscopeMultiplierY) { launchDialog("gyroscopeMultiplierY") }
-        EditTextPreference(title = "Z Multiplier", summary = settings.gyroscopeMultiplierZ) { launchDialog("gyroscopeMultiplierZ") }
-        EditTextPreference(title = "Rounding (Decimals)", summary = settings.gyroscopeRounding) { launchDialog("gyroscopeRounding") }
-        ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.gyroscopeSamplingPeriod] ?: "Normal") { launchDialog("gyroscopeSamplingPeriod") }
+        EditTextPreference(
+            title = "X Multiplier",
+            description = "Factor applied to the X axis value",
+            summary = settings.gyroscopeMultiplierX
+        ) { launchDialog("gyroscopeMultiplierX") }
+        EditTextPreference(
+            title = "Y Multiplier",
+            description = "Factor applied to the Y axis value",
+            summary = settings.gyroscopeMultiplierY
+        ) { launchDialog("gyroscopeMultiplierY") }
+        EditTextPreference(
+            title = "Z Multiplier",
+            description = "Factor applied to the Z axis value",
+            summary = settings.gyroscopeMultiplierZ
+        ) { launchDialog("gyroscopeMultiplierZ") }
+        EditTextPreference(
+            title = "Rounding (Decimals)",
+            description = "Number of decimal places for published values",
+            summary = settings.gyroscopeRounding
+        ) { launchDialog("gyroscopeRounding") }
+        ListPreference(
+            title = "Sampling Period",
+            description = "How often the sensor is polled",
+            summary = samplingPeriodOptions[settings.gyroscopeSamplingPeriod] ?: "Normal"
+        ) { launchDialog("gyroscopeSamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         SettingsCategory(title = "Gravity Processing")
-        EditTextPreference(title = "X Multiplier", summary = settings.gravityMultiplierX) { launchDialog("gravityMultiplierX") }
-        EditTextPreference(title = "Y Multiplier", summary = settings.gravityMultiplierY) { launchDialog("gravityMultiplierY") }
-        EditTextPreference(title = "Z Multiplier", summary = settings.gravityMultiplierZ) { launchDialog("gravityMultiplierZ") }
-        EditTextPreference(title = "Rounding (Decimals)", summary = settings.gravityRounding) { launchDialog("gravityRounding") }
-        ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.gravitySamplingPeriod] ?: "Normal") { launchDialog("gravitySamplingPeriod") }
+        EditTextPreference(
+            title = "X Multiplier",
+            description = "Factor applied to the X axis value",
+            summary = settings.gravityMultiplierX
+        ) { launchDialog("gravityMultiplierX") }
+        EditTextPreference(
+            title = "Y Multiplier",
+            description = "Factor applied to the Y axis value",
+            summary = settings.gravityMultiplierY
+        ) { launchDialog("gravityMultiplierY") }
+        EditTextPreference(
+            title = "Z Multiplier",
+            description = "Factor applied to the Z axis value",
+            summary = settings.gravityMultiplierZ
+        ) { launchDialog("gravityMultiplierZ") }
+        EditTextPreference(
+            title = "Rounding (Decimals)",
+            description = "Number of decimal places for published values",
+            summary = settings.gravityRounding
+        ) { launchDialog("gravityRounding") }
+        ListPreference(
+            title = "Sampling Period",
+            description = "How often the sensor is polled",
+            summary = samplingPeriodOptions[settings.gravitySamplingPeriod] ?: "Normal"
+        ) { launchDialog("gravitySamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         SettingsCategory(title = "Light Sensor Processing")
-        EditTextPreference(title = "Rounding (Decimals)", summary = settings.lightSensorRounding) { launchDialog("lightSensorRounding") }
-        ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.lightSensorSamplingPeriod] ?: "Normal") { launchDialog("lightSensorSamplingPeriod") }
+        EditTextPreference(
+            title = "Rounding (Decimals)",
+            description = "Number of decimal places for published values",
+            summary = settings.lightSensorRounding
+        ) { launchDialog("lightSensorRounding") }
+        ListPreference(
+            title = "Sampling Period",
+            description = "How often the sensor is polled",
+            summary = samplingPeriodOptions[settings.lightSensorSamplingPeriod] ?: "Normal"
+        ) { launchDialog("lightSensorSamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         SettingsCategory(title = "Temperature Sensor Processing")
-        EditTextPreference(title = "Rounding (Decimals)", summary = settings.temperatureSensorRounding) { launchDialog("temperatureSensorRounding") }
-        ListPreference(title = "Sampling Period", summary = samplingPeriodOptions[settings.temperatureSensorSamplingPeriod] ?: "Normal") { launchDialog("temperatureSensorSamplingPeriod") }
+        EditTextPreference(
+            title = "Rounding (Decimals)",
+            description = "Number of decimal places for published values",
+            summary = settings.temperatureSensorRounding
+        ) { launchDialog("temperatureSensorRounding") }
+        ListPreference(
+            title = "Sampling Period",
+            description = "How often the sensor is polled",
+            summary = samplingPeriodOptions[settings.temperatureSensorSamplingPeriod] ?: "Normal"
+        ) { launchDialog("temperatureSensorSamplingPeriod") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -936,9 +1045,21 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel) {
             summary = "Automatically configure sensors in Home Assistant",
             isChecked = settings.isHaDiscoveryEnabled
         ) { settingsViewModel.updateHaDiscoveryEnabled(it) }
-        EditTextPreference(title = "Discovery Prefix", summary = settings.haDiscoveryPrefix) { launchDialog("haDiscoveryPrefix") }
-        EditTextPreference(title = "Device Name", summary = settings.haDeviceName) { launchDialog("haDeviceName") }
-        EditTextPreference(title = "Device ID", summary = settings.haDeviceId) { launchDialog("haDeviceId") }
+        EditTextPreference(
+            title = "Discovery Prefix",
+            description = "Prefix for discovery topics",
+            summary = settings.haDiscoveryPrefix
+        ) { launchDialog("haDiscoveryPrefix") }
+        EditTextPreference(
+            title = "Device Name",
+            description = "Name of the device as it appears in Home Assistant",
+            summary = settings.haDeviceName
+        ) { launchDialog("haDeviceName") }
+        EditTextPreference(
+            title = "Device ID",
+            description = "Unique ID for the device",
+            summary = settings.haDeviceId
+        ) { launchDialog("haDeviceId") }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -1020,7 +1141,7 @@ fun LineGraph(data: List<Triple<Float, Float, Float>>, modifier: Modifier) {
 }
 
 @Composable
-fun EditTextPreference(title: String, summary: String, onClick: () -> Unit) {
+fun EditTextPreference(title: String, summary: String, description: String? = null, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1030,7 +1151,10 @@ fun EditTextPreference(title: String, summary: String, onClick: () -> Unit) {
     ) {
         Column {
             Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(text = summary, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+            if (description != null) {
+                Text(text = description, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+            }
+            Text(text = "Value: $summary", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
         }
     }
 }
@@ -1039,6 +1163,7 @@ fun EditTextPreference(title: String, summary: String, onClick: () -> Unit) {
 fun ListPreference(
     title: String,
     summary: String,
+    description: String? = null,
     onClick: () -> Unit
 ) {
     Row(
@@ -1050,7 +1175,10 @@ fun ListPreference(
     ) {
         Column {
             Text(text = title, style = MaterialTheme.typography.titleMedium)
-            Text(text = summary, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+            if (description != null) {
+                Text(text = description, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+            }
+            Text(text = "Value: $summary", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
         }
     }
 }
@@ -1135,7 +1263,23 @@ fun EditTextPreferenceDialog(
         text = {
             TextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = { newValue ->
+                    val filteredValue = when (keyboardType) {
+                        KeyboardType.Number -> newValue.filter { it.isDigit() }
+                        KeyboardType.Decimal -> {
+                            val filtered = newValue.filter { it.isDigit() || it == '.' }
+                            if (filtered.count { it == '.' } > 1) {
+                                val firstDotIndex = filtered.indexOf('.')
+                                filtered.substring(0, firstDotIndex + 1) +
+                                        filtered.substring(firstDotIndex + 1).replace(".", "")
+                            } else {
+                                filtered
+                            }
+                        }
+                        else -> newValue
+                    }
+                    text = filteredValue
+                },
                 singleLine = true,
                 placeholder = { Text(hint) },
                 visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
