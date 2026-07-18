@@ -33,9 +33,16 @@ ExternalProject_Add(
         --prefix=${OPENSSL_INSTALL_DIR}
         --openssldir=${OPENSSL_INSTALL_DIR}
         no-shared
+        no-tests
+        no-unit-test
+        no-external-tests
         no-docs
         no-apps
-        no-tests
+        no-asm
+        no-ssl2
+        no-ssl3
+        no-comp
+        -fPIC
         BUILD_COMMAND
         ${CMAKE_COMMAND} -E env
         ANDROID_NDK_ROOT=${CMAKE_ANDROID_NDK}
