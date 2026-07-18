@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -74,11 +76,15 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -487,13 +493,25 @@ fun AccelerometerScreen(settingsViewModel: SettingsViewModel) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        LineGraph(
-            data = dataHistory,
+        SensorGraph(
+            data = dataHistory.map { floatArrayOf(it.first, it.second, it.third) },
+            labels = listOf("X", "Y", "Z"),
+            unit = "m/s²",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(250.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
+
+        val last = dataHistory.lastOrNull()
+        CurrentValueCard(
+            values = listOf(
+                "X" to last?.first,
+                "Y" to last?.second,
+                "Z" to last?.third
+            ),
+            unit = "m/s²"
+        )
     }
 }
 
@@ -521,13 +539,25 @@ fun GyroscopeScreen(settingsViewModel: SettingsViewModel) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        LineGraph(
-            data = dataHistory,
+        SensorGraph(
+            data = dataHistory.map { floatArrayOf(it.first, it.second, it.third) },
+            labels = listOf("X", "Y", "Z"),
+            unit = "rad/s",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(250.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
+
+        val last = dataHistory.lastOrNull()
+        CurrentValueCard(
+            values = listOf(
+                "X" to last?.first,
+                "Y" to last?.second,
+                "Z" to last?.third
+            ),
+            unit = "rad/s"
+        )
     }
 }
 
@@ -555,13 +585,25 @@ fun GravityScreen(settingsViewModel: SettingsViewModel) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        LineGraph(
-            data = dataHistory,
+        SensorGraph(
+            data = dataHistory.map { floatArrayOf(it.first, it.second, it.third) },
+            labels = listOf("X", "Y", "Z"),
+            unit = "m/s²",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(250.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
+
+        val last = dataHistory.lastOrNull()
+        CurrentValueCard(
+            values = listOf(
+                "X" to last?.first,
+                "Y" to last?.second,
+                "Z" to last?.third
+            ),
+            unit = "m/s²"
+        )
     }
 }
 
@@ -589,13 +631,20 @@ fun LightScreen(settingsViewModel: SettingsViewModel) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        LineGraph(
-            data = dataHistory.map { Triple(it, 0f, 0f) },
+        SensorGraph(
+            data = dataHistory.map { floatArrayOf(it) },
+            labels = listOf("Light"),
+            unit = "lx",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(250.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
+
+        CurrentValueCard(
+            values = listOf("Intensity" to dataHistory.lastOrNull()),
+            unit = "lx"
+        )
     }
 }
 
@@ -623,13 +672,20 @@ fun TemperatureScreen(settingsViewModel: SettingsViewModel) {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        LineGraph(
-            data = dataHistory.map { Triple(it, 0f, 0f) },
+        SensorGraph(
+            data = dataHistory.map { floatArrayOf(it) },
+            labels = listOf("Temperature"),
+            unit = "°C",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(250.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
+
+        CurrentValueCard(
+            values = listOf("Value" to dataHistory.lastOrNull()),
+            unit = "°C"
+        )
     }
 }
 
@@ -1081,56 +1137,168 @@ fun AppVersionPreference() {
 }
 
 @Composable
-fun LineGraph(data: List<Triple<Float, Float, Float>>, modifier: Modifier) {
-    Canvas(modifier = modifier) {
-        val (width, height) = size
-        val pathX = Path()
-        val pathY = Path()
-        val pathZ = Path()
-
-        // Calculate min/max for scaling
-        val allValues = data.flatMap { listOf(it.first, it.second, it.third) }
-        val overallMin = allValues.minOrNull() ?: -1f
-        val overallMax = allValues.maxOrNull() ?: 1f
-
-        if (data.isNotEmpty()) {
-            data.forEachIndexed { index, (x, y, z) ->
-                val pX = index.toFloat() / (data.size - 1).coerceAtLeast(1) * width
-
-                // Scale values relative to the overall min/max
-                val effectiveMax = if (overallMax > overallMin) overallMax - overallMin else 1f
-                val scaledX = (x - overallMin) / effectiveMax
-                val scaledY = (y - overallMin) / effectiveMax
-                val scaledZ = (z - overallMin) / effectiveMax
-
-                // Invert y-axis for drawing (0 at top, height at bottom)
-                val pYx = (1 - scaledX) * height
-                val pYy = (1 - scaledY) * height
-                val pYz = (1 - scaledZ) * height
-
-                if (index == 0) {
-                    pathX.moveTo(pX, pYx)
-                    pathY.moveTo(pX, pYy)
-                    pathZ.moveTo(pX, pYz)
-                } else {
-                    pathX.lineTo(pX, pYx)
-                    pathY.lineTo(pX, pYy)
-                    pathZ.lineTo(pX, pYz)
+fun CurrentValueCard(values: List<Pair<String, Float?>>, unit: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 2.dp
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Current Raw Values",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            values.forEach { (label, value) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "$label:", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = if (value != null) String.format("%.4f %s", value, unit) else "---",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
-        } else {
-            // Draw a flat line or nothing if no data
-            pathX.moveTo(0f, height / 2f)
-            pathX.lineTo(width, height / 2f)
-            pathY.moveTo(0f, height / 2f)
-            pathY.lineTo(width, height / 2f)
-            pathZ.moveTo(0f, height / 2f)
-            pathZ.lineTo(width, height / 2f)
+        }
+    }
+}
+
+@Composable
+fun SensorGraph(
+    data: List<FloatArray>,
+    labels: List<String>,
+    unit: String,
+    minRange: Float = 0.0001f,
+    modifier: Modifier = Modifier
+) {
+    val colors = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.secondary,
+        MaterialTheme.colorScheme.tertiary
+    )
+
+    val textMeasurer = rememberTextMeasurer()
+    val textStyle = TextStyle(
+        fontSize = 10.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Column(modifier = modifier) {
+        // Legend
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            labels.forEachIndexed { index, label ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
+                    Surface(
+                        modifier = Modifier.size(12.dp, 2.dp),
+                        color = colors.getOrElse(index) { Color.Gray }
+                    ) {}
+                    Spacer(Modifier.width(4.dp))
+                    Text(text = label, style = MaterialTheme.typography.labelSmall)
+                }
+            }
         }
 
-        drawPath(pathX, Color.Red, style = Stroke(2f))
-        drawPath(pathY, Color.Green, style = Stroke(2f))
-        drawPath(pathZ, Color.Blue, style = Stroke(2f))
+        Canvas(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            val (width, height) = size
+            val padding = 40f // Padding for labels
+            val graphWidth = width - padding
+            val graphHeight = height - 20f
+
+            // Calculate min/max for scaling
+            var dataMin = Float.MAX_VALUE
+            var dataMax = -Float.MAX_VALUE
+            if (data.isEmpty()) {
+                dataMin = -1f
+                dataMax = 1f
+            } else {
+                for (array in data) {
+                    for (v in array) {
+                        if (v < dataMin) dataMin = v
+                        if (v > dataMax) dataMax = v
+                    }
+                }
+            }
+
+            val center = (dataMax + dataMin) / 2f
+            val span = (dataMax - dataMin).coerceAtLeast(minRange) * 1.2f // 20% breathing room
+            val overallMin = center - span / 2f
+            val overallMax = center + span / 2f
+            val range = span.coerceAtLeast(0.00001f) // Avoid division by zero
+
+            // Draw Grid and Y-axis labels
+            val gridLines = 5
+            for (i in 0 until gridLines) {
+                val y = 10f + (graphHeight / (gridLines - 1)) * i
+                drawLine(
+                    color = Color.LightGray.copy(alpha = 0.5f),
+                    start = androidx.compose.ui.geometry.Offset(padding, y),
+                    end = androidx.compose.ui.geometry.Offset(width, y),
+                    strokeWidth = 1f
+                )
+
+                val labelValue = overallMax - (range / (gridLines - 1)) * i
+                drawText(
+                    textMeasurer = textMeasurer,
+                    text = String.format("%.2f", labelValue),
+                    topLeft = androidx.compose.ui.geometry.Offset(0f, y - 15f),
+                    style = textStyle
+                )
+            }
+
+            // Draw Zero line if in range
+            if (overallMin < 0 && overallMax > 0) {
+                val zeroY = 10f + ((overallMax - 0f) / range) * graphHeight
+                drawLine(
+                    color = Color.Gray,
+                    start = androidx.compose.ui.geometry.Offset(padding, zeroY),
+                    end = androidx.compose.ui.geometry.Offset(width, zeroY),
+                    strokeWidth = 2f
+                )
+            }
+
+            if (data.isNotEmpty()) {
+                val numSeries = data.first().size
+                for (seriesIndex in 0 until numSeries) {
+                    val path = Path()
+                    data.forEachIndexed { index, values ->
+                        val x = padding + index.toFloat() / (data.size - 1).coerceAtLeast(1) * graphWidth
+                        val valAtIdx = values.getOrElse(seriesIndex) { 0f }
+                        val y = 10f + ((overallMax - valAtIdx) / range) * graphHeight
+
+                        if (index == 0) {
+                            path.moveTo(x, y)
+                        } else {
+                            path.lineTo(x, y)
+                        }
+                    }
+                    drawPath(
+                        path = path,
+                        color = colors.getOrElse(seriesIndex) { Color.Gray },
+                        style = Stroke(width = 3f)
+                    )
+                }
+            }
+        }
+        
+        Text(
+            text = "Unit: $unit",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.align(Alignment.End).padding(top = 4.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
