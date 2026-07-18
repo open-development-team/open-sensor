@@ -152,7 +152,7 @@ class SettingsDataStore(val context: Context) {
                 isHaDiscoveryEnabled = preferences[PreferenceKeys.HA_DISCOVERY_ENABLED] ?: false,
                 haDiscoveryPrefix = preferences[PreferenceKeys.HA_DISCOVERY_PREFIX] ?: "homeassistant",
                 haDeviceName = preferences[PreferenceKeys.HA_DEVICE_NAME] ?: "OpenSensor",
-                haDeviceId = preferences[PreferenceKeys.HA_DEVICE_ID] ?: "opensensor_device",
+                haDeviceId = preferences[PreferenceKeys.HA_DEVICE_ID] ?: "opensensor_${android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "device"}",
                 availabilityTopic = preferences[PreferenceKeys.AVAILABILITY_TOPIC] ?: "opensensor/status"
             )
         }
