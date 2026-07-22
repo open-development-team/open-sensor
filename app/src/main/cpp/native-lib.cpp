@@ -181,12 +181,12 @@ Java_com_opendevelopment_opensensor_MqttService_nativeCleanup(JNIEnv* env, jobje
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_opendevelopment_opensensor_MqttService_nativePublish(JNIEnv* env, jobject /* this */, jstring topic, jstring payload, jboolean retain) {
+Java_com_opendevelopment_opensensor_MqttService_nativePublish(JNIEnv* env, jobject /* this */, jstring topic, jstring payload, jboolean retain, jint qos) {
     if (mqttClientWrapper != nullptr) {
         const char* topicCStr = env->GetStringUTFChars(topic, nullptr);
         const char* payloadCStr = env->GetStringUTFChars(payload, nullptr);
 
-        mqttClientWrapper->publish(topicCStr, payloadCStr, retain);
+        mqttClientWrapper->publish(topicCStr, payloadCStr, retain, qos);
 
         env->ReleaseStringUTFChars(topic, topicCStr);
         env->ReleaseStringUTFChars(payload, payloadCStr);

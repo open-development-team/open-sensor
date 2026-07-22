@@ -129,21 +129,32 @@ void MqttClientWrapper::disconnect() {
     });
 }
 
-bool MqttClientWrapper::publish(const std::string& topic, const std::string& payload, bool retain) {
-    boost::asio::dispatch(ioc_, [this, topic, payload, retain] {
+bool MqttClientWrapper::publish(const std::string& topic, const std::string& payload, bool retain, int qos) {
+    boost::asio::dispatch(ioc_, [this, topic, payload, retain, qos] {
         if (!std::holds_alternative<std::monostate>(client_)) {
             try {
                 std::visit([&](auto&& cli) {
                     using T = std::decay_t<decltype(cli)>;
                     if constexpr (!std::is_same_v<T, std::monostate>) {
-                        cli.template async_publish<boost::mqtt5::qos_e::at_most_once>(
-                                topic,
-                                payload,
-                                retain ? boost::mqtt5::retain_e::yes : boost::mqtt5::retain_e::no,
-                                boost::mqtt5::publish_props {},
-                                [this](boost::mqtt5::error_code ec) {
-                                    if (ec) logger_.log(ec.message());
-                                });
+                        if (qos == 1) {
+                            cli.template async_publish<boost::mqtt5::qos_e::at_least_once>(
+                                    topic,
+                                    payload,
+                                    retain ? boost::mqtt5::retain_e::yes : boost::mqtt5::retain_e::no,
+                                    boost::mqtt5::publish_props {},
+                                    [this](auto ec, auto rc, const auto& props) {
+                                        if (ec) logger_.log(ec.message());
+                                    });
+                        } else {
+                            cli.template async_publish<boost::mqtt5::qos_e::at_most_once>(
+                                    topic,
+                                    payload,
+                                    retain ? boost::mqtt5::retain_e::yes : boost::mqtt5::retain_e::no,
+                                    boost::mqtt5::publish_props {},
+                                    [this](auto ec) {
+                                        if (ec) logger_.log(ec.message());
+                                    });
+                        }
                     }
                 }, client_);
             } catch (const std::exception& e) {

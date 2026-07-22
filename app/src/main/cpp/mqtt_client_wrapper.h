@@ -29,7 +29,7 @@ public:
 
     void connect(const std::string& broker_url, const std::string& client_id, const std::string& username, const std::string& password, const std::string& will_topic = "", const std::string& will_payload = "");
     void disconnect();
-    bool publish(const std::string& topic, const std::string& payload, bool retain = true);
+    bool publish(const std::string& topic, const std::string& payload, bool retain = true, int qos = 0);
 
 private:
     struct custom_logger {
