@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Open Sensor</string>
+    <string name="fgs_mqtt_justification">Maintaining a persistent MQTT connection to stream real-time sensor data to a remote broker for telemetry and analysis.</string>
+    <string name="fgs_accel_justification">Continuous background monitoring of linear acceleration for real-time telemetry and motion analysis.</string>
+    <string name="fgs_gyro_justification">Continuous background monitoring of rotational velocity for real-time telemetry and orientation analysis.</string>
+    <string name="fgs_gravity_justification">Continuous background monitoring of gravity vectors for real-time telemetry and orientation analysis.</string>
+    <string name="fgs_light_justification">Continuous background monitoring of ambient light levels for environmental telemetry.</string>
+    <string name="fgs_temp_justification">Continuous background monitoring of ambient temperature for environmental telemetry.</string>
 </resources>

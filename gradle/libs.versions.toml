@@ -16,8 +16,8 @@ espressoCore = "3.7.0"
 compileSdk = "37"
 minSdk = "24"
 targetSdk = "37"
-versionCode = "7"
-versionName = "0.0.1"
+versionCode = "8"
+versionName = "1.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
